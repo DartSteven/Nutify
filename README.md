@@ -10,8 +10,8 @@ Nutify is a comprehensive monitoring system designed to track the health and per
 
 > **🆕 LATEST DOCKER IMAGES**  
 > Use these tags to always get the latest version:  
-> • AMD64/x86_64: `dartsteven/nutify:amd64-latest`  
-> • ARM64/aarch64: `dartsteven/nutify:arm64-latest`  
+> • AMD64/x86_64: `dartsteven/nutify:latest`  
+> • ARM64/aarch64: `dartsteven/nutify:latest`  
 > • ARMv7/armhf: `dartsteven/nutify:armv7-latest` (coming soon)
 
 > **📊 Is Nutify working with your UPS?**  
@@ -52,7 +52,7 @@ Create a `docker-compose.yaml` file with the following content:
 ```yaml
 services:
   nut:
-    image: dartsteven/nutify:arm64-latest
+    image: dartsteven/nutify:latest
     container_name: Nutify-Server
     privileged: true
     cap_add:
@@ -95,7 +95,7 @@ Create a `docker-compose.yaml` file with the following content:
 ```yaml
 services:
   nut:
-    image: dartsteven/nutify:arm64-latest
+    image: dartsteven/nutify:latest
     container_name: Nutify-Client
     environment:
       - NUT_TYPE=CLIENT                           # Connect to remote NUT server
@@ -179,8 +179,8 @@ Nutify is available for multiple hardware platforms:
 
 | Architecture | Docker Image Tag | Devices |
 |--------------|------------------|---------|
-| 🖥️ **AMD64/x86_64** | `dartsteven/nutify:amd64-latest` | Standard PCs, servers, most cloud VMs |
-| 🍓 **ARM64/aarch64** | `dartsteven/nutify:arm64-latest` | Raspberry Pi 4, Pi 400, Compute Module 4, Apple M1/M2 Macs |
+| 🖥️ **AMD64/x86_64** | `dartsteven/nutify:latest` | Standard PCs, servers, most cloud VMs |
+| 🍓 **ARM64/aarch64** | `dartsteven/nutify:latest` | Raspberry Pi 4, Pi 400, Compute Module 4, Apple M1/M2 Macs |
 | 🍓 **ARMv7/armhf** | `dartsteven/nutify:armv7-latest` | Raspberry Pi 2/3, older ARM-based devices (coming soon) |
 
 You can also use specific version tags (e.g., `dartsteven/nutify:amd64-0.1.3`) if you need a particular version.
