@@ -1,7 +1,7 @@
 # Build stage
-FROM python:3.9-slim-bullseye AS builder
+FROM python:3.13-slim-bookworm AS builder
 
-ENV NUT_VERSION=2.8.2
+ENV NUT_VERSION=2.8.3
 
 # Combine all build commands in a single layer
 RUN apt-get update && apt-get install -y --no-install-recommends \
@@ -39,7 +39,6 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     --with-nutclient \
     --with-python3 \
     --with-nut-scanner \
-    --with-drivers=usbhid-ups,nutdrv_qx,blazer_usb,blazer_ser,snmp-ups,richcomm_usb,tripplite_usb,riello_usb,apcsmart,mge-shut,genericups,liebert,victronups,powercom,clone,upscode2,bestups,belkin,dummy-ups,netxml-ups \
     --datadir=/usr/share/nut \
     --with-drvpath=/usr/lib/nut \
     --with-statepath=/var/run/nut \
@@ -69,14 +68,20 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     rm -f /tmp/nut-$NUT_VERSION.tar.gz
 
 # Python dependencies stage
-FROM python:3.9-slim-bullseye AS python-deps
+FROM python:3.13-slim-bookworm AS python-deps
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    git \
+    build-essential && \
+    # Clean up apt cache
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
 WORKDIR /app
 COPY nutify/requirements.txt .
 # Install packages to /usr/local to be copied to final image
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Final stage
-FROM python:3.9-slim-bullseye
+FROM python:3.13-slim-bookworm
 
 # Get target architecture from build arg
 ARG TARGET_ARCH
@@ -156,8 +161,9 @@ RUN touch /var/run/nut/upsd.pid /var/run/nut/driver.pid /run/upsmon.pid && \
     chmod 644 /var/run/nut/upsd.pid /var/run/nut/driver.pid /run/upsmon.pid
 
 # Copy Python dependencies
+COPY --from=python-deps /usr/local /usr/local
 ENV PATH=/usr/local/bin:$PATH
-COPY nutify/requirements.txt /tmp/
+COPY --from=python-deps /app/requirements.txt /tmp/requirements.txt
 RUN pip install --no-cache-dir -r /tmp/requirements.txt && \
     rm /tmp/requirements.txt
 
