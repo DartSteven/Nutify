@@ -70,7 +70,6 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # Python dependencies stage
 FROM python:3.13-slim-bookworm AS python-deps
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    git \
     build-essential && \
     # Clean up apt cache
     apt-get clean && \
