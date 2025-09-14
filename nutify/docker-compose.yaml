@@ -34,7 +34,7 @@ services:
     ports:
       - 3493:3493
       - 5050:5050
-      - 443:443
+      - "${NUTIFY_HTTPS_PORT:-8443}:${NUTIFY_HTTPS_PORT:-8443}"
     restart: always
     user: root
 

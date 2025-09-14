@@ -978,6 +978,12 @@ def init_app():
         logger.critical(f"❌ FATAL ERROR: Failed to initialize application: {str(e)}")
         raise
 
+LISTEN_HOST = os.getenv("NUTIFY_LISTEN_HOST", SERVER_HOST)
+HTTP_PORT   = int(os.getenv("NUTIFY_HTTP_PORT", str(SERVER_PORT)))
+HTTPS_PORT  = int(os.getenv("NUTIFY_HTTPS_PORT", "8443"))
+
+logger.info(f"HTTP bind:  {LISTEN_HOST}:{HTTP_PORT}")
+logger.info(f"HTTPS bind: {LISTEN_HOST}:{HTTPS_PORT} (SSL_ENABLED={SSL_ENABLED})")
 
 if __name__ == '__main__':
     warnings.filterwarnings("ignore", message="resource_tracker: There appear to be .* leaked semaphore objects to clean up at shutdown")
@@ -1014,7 +1020,9 @@ if __name__ == '__main__':
                 "-w", "1", 
                 "--certfile", SSL_CERT, 
                 "--keyfile", SSL_KEY,
-                "-b", f"{SERVER_HOST}:{SERVER_PORT}", 
+                "--access-logfile", "-",
+                "--error-logfile", "-",
+                "-b", f"{LISTEN_HOST}:{HTTPS_PORT}", 
                 "wsgi:app"
             ]
             logger.info(f"Starting gunicorn with SSL: {' '.join(cmd)}")
@@ -1041,8 +1049,8 @@ if __name__ == '__main__':
     if not SSL_ENABLED or ssl_context is None:
         socketio.run(app, 
             debug=DEBUG_MODE, 
-            host=SERVER_HOST, 
-            port=SERVER_PORT,
+            host=LISTEN_HOST,
+            port=HTTP_PORT,
             log_output=use_werkzeug,
             use_reloader=False
         )

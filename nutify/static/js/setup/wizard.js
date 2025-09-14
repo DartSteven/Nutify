@@ -49,6 +49,9 @@ document.addEventListener('DOMContentLoaded', function() {
     const missingRealpowerForm = document.getElementById('missing-realpower-form');
     const realpowerInput = document.getElementById('ups-realpower-nominal');
     
+    const HOST_DEFAULT = window.location.hostname || '127.0.0.1';
+
+
     // Current step (1-based)
     let currentStep = 1;
     let selectedMode = null;
@@ -74,6 +77,12 @@ document.addEventListener('DOMContentLoaded', function() {
     testConfigBtn.addEventListener('click', testConfiguration);
     restartBtn.addEventListener('click', resetWizard);
     
+    // Prefill server-address fields to the current host if empty
+    ['server_address','auto_server_address','server_address_ns','auto_server_address_ns'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el && !el.value.trim()) el.value = HOST_DEFAULT;
+    });
+
     // Editor event listeners
     if (editConfigBtn) {
         editConfigBtn.addEventListener('click', toggleEditor);
@@ -953,10 +962,10 @@ document.addEventListener('DOMContentLoaded', function() {
                     }
                     
                     // Validate server address for auto mode
-                    const serverAddress = document.getElementById('auto_server_address').value.trim();
+                    let serverAddress = document.getElementById('auto_server_address').value.trim();
                     if (!serverAddress) {
-                        showAlert('Please enter a server address.', 'error');
-                        return;
+                        serverAddress = HOST_DEFAULT;
+                        document.getElementById('auto_server_address').value = serverAddress;
                     }
                 }
                 
@@ -1014,14 +1023,14 @@ document.addEventListener('DOMContentLoaded', function() {
                     }
                     
                     // Validate server address and admin credentials for auto mode
-                    const serverAddress = document.getElementById('auto_server_address_ns').value.trim();
+                    let serverAddress = document.getElementById('auto_server_address_ns').value.trim();
                     const listenAddress = document.getElementById('auto_listen_address').value.trim();
                     const adminUser = document.getElementById('auto_admin_user').value.trim();
                     const adminPassword = document.getElementById('auto_admin_password').value.trim();
                     
                     if (!serverAddress) {
-                        showAlert('Please enter a server address.', 'error');
-                        return;
+                        serverAddress = HOST_DEFAULT;
+                        document.getElementById('auto_server_address_ns').value = serverAddress;
                     }
                     
                     if (!listenAddress) {
@@ -1378,9 +1387,9 @@ document.addEventListener('DOMContentLoaded', function() {
             
             // Get server configuration based on mode (auto or manual)
             if (isAutoMode) {
-                configData.server_address = document.getElementById('auto_server_address').value.trim() || '127.0.0.1';
+                configData.server_address = document.getElementById('auto_server_address').value.trim() || HOST_DEFAULT;
             } else {
-                configData.server_address = document.getElementById('server_address').value.trim() || '127.0.0.1';
+                configData.server_address = document.getElementById('server_address').value.trim() || HOST_DEFAULT;
             }
             
             // Add monitor user credentials
@@ -1422,13 +1431,13 @@ document.addEventListener('DOMContentLoaded', function() {
             
             // Get server configuration based on mode (auto or manual)
             if (isAutoMode) {
-                configData.server_address = document.getElementById('auto_server_address_ns').value.trim() || '127.0.0.1';
+                configData.server_address = document.getElementById('auto_server_address_ns').value.trim() || HOST_DEFAULT;
                 configData.listen_address = document.getElementById('auto_listen_address').value.trim() || '0.0.0.0';
                 configData.listen_port = document.getElementById('auto_listen_port').value.trim() || '3493';
                 configData.admin_user = document.getElementById('auto_admin_user').value.trim();
                 configData.admin_password = document.getElementById('auto_admin_password').value.trim();
             } else {
-                configData.server_address = document.getElementById('server_address_ns').value.trim() || '127.0.0.1';
+                configData.server_address = document.getElementById('auto_server_address_ns').value.trim() || HOST_DEFAULT;
                 configData.listen_address = document.getElementById('listen_address').value.trim() || '0.0.0.0';
                 configData.listen_port = document.getElementById('listen_port').value.trim() || '3493';
                 configData.admin_user = document.getElementById('admin_user').value.trim();
@@ -1857,7 +1866,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 ups_driver: document.getElementById('ups_driver').value,
                 ups_port: document.getElementById('ups_port').value.trim(),
                 ups_desc: document.getElementById('ups_desc').value.trim(),
-                server_address: document.getElementById('server_address').value.trim() || '127.0.0.1',
+                server_address: document.getElementById('server_address').value.trim() || HOST_DEFAULT,
                 upsc_command: 'upsc',
                 upscmd_command: 'upscmd'
             };
@@ -1868,7 +1877,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 ups_driver: document.getElementById('server_ups_driver').value,
                 ups_port: document.getElementById('server_ups_port').value.trim(),
                 ups_desc: document.getElementById('server_ups_desc').value.trim(),
-                server_address: document.getElementById('server_address_ns').value.trim() || '127.0.0.1',
+                server_address: document.getElementById('server_address_ns').value.trim() || HOST_DEFAULT,
                 listen_address: document.getElementById('listen_address').value.trim() || '0.0.0.0',
                 listen_port: document.getElementById('listen_port').value.trim() || '3493',
                 admin_user: document.getElementById('admin_user').value.trim(),
