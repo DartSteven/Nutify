@@ -1,7 +1,7 @@
 # Build stage
 FROM python:3.13-slim-bookworm AS builder
 
-ENV NUT_VERSION=2.8.3
+ENV NUT_VERSION=2.8.4
 
 # Install build dependencies
 RUN apt-get update && apt-get install -y --no-install-recommends \
