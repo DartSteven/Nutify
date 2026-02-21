@@ -273,10 +273,10 @@ class LoginAuth:
             if logger:
                 logger.warning(f"🔐 Attempted to update password for non-existent user: {username}")
             return False
-        
+
         user.set_password(new_password)
         user.updated_at = datetime.now(pytz.UTC)
-        
+
         try:
             from core.db.ups import db
             db.session.commit()
@@ -290,6 +290,69 @@ class LoginAuth:
                 logger.error(f"🔐 Error updating password for user {username}: {str(e)}")
             return False
 
+    @classmethod
+    def reset_admin_password(cls, new_password: str, username: Optional[str] = None) -> bool:
+        """
+        Reset the admin password by updating or creating the primary admin user.
+
+        Args:
+            new_password: New plain text password
+            username: Optional username to set for the admin user
+
+        Returns:
+            bool: True if password was reset successfully, False otherwise
+        """
+        if not new_password:
+            if logger:
+                logger.warning("🔐 Admin password reset requested with empty password")
+            return False
+
+        try:
+            user = cls.query.filter_by(id=1).first()
+            if not user and username:
+                user = cls.query.filter_by(username=username).first()
+
+            if not user:
+                user = cls(
+                    username=username or 'admin',
+                    role='administrator',
+                    is_admin=True,
+                    is_active=True
+                )
+                user.set_password(new_password)
+                user.set_permissions(user.get_default_permissions())
+                user.set_options_tabs(user.get_default_options_tabs())
+
+                from core.db.ups import db
+                db.session.add(user)
+                db.session.commit()
+                if logger:
+                    logger.info("🔐 Created primary admin user via password reset")
+                return True
+
+            user.set_password(new_password)
+            if username:
+                user.username = username
+            user.is_active = True
+            user.is_admin = True
+            user.role = 'administrator'
+            if not user.permissions:
+                user.set_permissions(user.get_default_permissions())
+            if not user.options_tabs:
+                user.set_options_tabs(user.get_default_options_tabs())
+            user.updated_at = datetime.now(pytz.UTC)
+
+            from core.db.ups import db
+            db.session.commit()
+            if logger:
+                logger.info("🔐 Reset password for primary admin user")
+            return True
+        except Exception as e:
+            from core.db.ups import db
+            db.session.rollback()
+            if logger:
+                logger.error(f"🔐 Error resetting admin password: {str(e)}")
+            return False
     @classmethod
     def authenticate_user(cls, username: str, password: str) -> Optional['LoginAuth']:
         """
@@ -418,4 +481,4 @@ def init_model(model_base, db_logger=None):
     if logger:
         logger.info("🔐 Initialized LoginAuth ORM model")
     
-    return LoginAuthModel 
+    return LoginAuthModel

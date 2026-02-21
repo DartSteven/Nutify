@@ -28,13 +28,13 @@
 
 <p align="center">Join our Discord channel for any issues, questions, information, or testing!</p>
 <p align="center">
-  <a href="https://discord.gg/RY9H4zK2h9" target="_blank">
+  <a href="https://discord.gg/mDAYVH9M" target="_blank">
     <img alt="Nutify Bugs" src="https://img.shields.io/badge/Discord-Bugs-red?logo=discord&logoColor=white">
   </a>
-  <a href="https://discord.gg/RY9H4zK2h9" target="_blank">
+  <a href="https://discord.gg/mDAYVH9M" target="_blank">
     <img alt="Nutify Help" src="https://img.shields.io/badge/Discord-Help-blue?logo=discord&logoColor=white">
   </a>
-  <a href="https://discord.gg/RY9H4zK2h9" target="_blank">
+  <a href="https://discord.gg/mDAYVH9M" target="_blank">
     <img alt="Nutify Support" src="https://img.shields.io/badge/Discord-Support-green?logo=discord&logoColor=white">
   </a>
 </p>
@@ -118,6 +118,22 @@ Version 0.1.7 introduces significant improvements including:
 * **Push Notifications:** Integration with Ntfy for instant mobile alerts
 * **Webhook Integration:** Flexible HTTP callbacks for third-party system integration
 * **Advanced Configuration:** Fine-grained control over NUT settings and polling with user-based access
+
+## Authentication Controls (Optional)
+
+Nutify supports an environment variable to disable login entirely:
+
+* `DISABLE_AUTH=true` to disable the login system (no login prompt, permissions bypassed).
+* `SKIP_PERMCHECK=true` to skip USB permission changes (useful for rootless containers).
+
+You can reset the primary admin password via the CLI (recommended if you lose access):
+
+```bash
+python -m core.auth.reset_admin_password --username admin
+```
+
+Omit `--username` to target the primary admin (ID 1) automatically, and omit `--password`
+to be prompted securely in the terminal.
 * **Connection Recovery:** Automatic reconnection and recovery from UPS communication failures
 * **Optimized Event Handling:** Native Python integration with upsmon.conf for improved stability and responsiveness
 * **WebSocket-based Real-time Data:** Efficient caching system significantly reducing CPU and RAM usage
@@ -154,7 +170,8 @@ services:
       - /dev:/dev:rw              # Full /dev access improves hotplug handling
       - /run/udev:/run/udev:ro    # Access to udev events
     environment:
-    # - SKIP_PERMCHECK            # Skip USB permission change for rootless implementations
+    # - DISABLE_AUTH=true         # Disable the login system (no login prompt, permissions bypassed)
+    # - SKIP_PERMCHECK=true       # Skip USB permission change for rootless implementations
       - SECRET_KEY=test1234567890 # for password encryption and decryption in the database
       - UDEV=1                    # Improve USB detection
     ports:

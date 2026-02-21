@@ -91,9 +91,11 @@ def setup_wizard():
     if configured:
         return redirect(url_for('dashboard_index'))
     
+    from core.auth import is_auth_disabled
     return render_template('dashboard/setup/wizard.html',
                          current_year=datetime.datetime.now(pytz.UTC).year,
-                         timezone=pytz.UTC)
+                         timezone=pytz.UTC,
+                         auth_disabled=is_auth_disabled())
 
 @nut_config_bp.route('/api/nut/status', methods=['GET'])
 def get_nut_status():
@@ -810,6 +812,14 @@ def save_config():
                     # Create admin account if credentials are provided
                     admin_username = data.get('admin_username')
                     admin_password = data.get('admin_password')
+                    from core.auth import is_auth_disabled
+
+                    if is_auth_disabled():
+                        if not admin_username:
+                            admin_username = 'admin'
+                        if not admin_password:
+                            import secrets
+                            admin_password = secrets.token_urlsafe(32)
                     
                     if admin_username and admin_password:
                         try:

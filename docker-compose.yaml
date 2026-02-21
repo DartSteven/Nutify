@@ -23,6 +23,9 @@ services:
       # ===== SERVER CONFIGURATION =====
       - SERVER_PORT=5050
       - SERVER_HOST=0.0.0.0
+      # ===== AUTH CONFIGURATION =====
+      # - DISABLE_AUTH=true
+      # - SKIP_PERMCHECK=true
       # ===== LOGGING CONFIGURATION =====
       - LOG=true
       - LOG_LEVEL=DEBUG
@@ -37,4 +40,3 @@ services:
       - 443:443
     restart: always
     user: root
-

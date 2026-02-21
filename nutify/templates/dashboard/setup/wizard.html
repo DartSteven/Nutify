@@ -45,7 +45,7 @@
 {% endblock %}
 
 {% block content %}
-<div class="setup-container">
+<div class="setup-container" data-auth-disabled="{{ 'true' if auth_disabled else 'false' }}">
     <div class="setup-header">
         <img src="{{ url_for('static', filename='img/Nutify-Logo.png') }}" alt="Nutify Logo" class="setup-logo">
         <h1 class="setup-title">NUT Configuration Wizard</h1>
@@ -62,7 +62,7 @@
         <div class="card-content">
             <!-- Steps Indicator -->
             <div class="wizard-steps">
-                <div class="step active" data-step="1">
+                <div class="step active{% if auth_disabled %} hidden{% endif %}" data-step="1">
                     <div class="step-number">1</div>
                     <div class="step-label">Admin Setup</div>
                 </div>
@@ -88,7 +88,7 @@
             <div id="alerts-container"></div>
             
             <!-- Step 1: Admin Setup -->
-            <div class="wizard-step-content" id="step-1">
+            <div class="wizard-step-content{% if auth_disabled %} hidden{% endif %}" id="step-1">
                 <div class="text-center">
                     <i class="fas fa-user-shield setup-icon"></i>
                     <h3>Setup Admin Account</h3>

@@ -13,6 +13,8 @@ document.addEventListener('DOMContentLoaded', function() {
     const restartBtn = document.getElementById('restart-btn');
     const steps = document.querySelectorAll('.step');
     const stepContents = document.querySelectorAll('.wizard-step-content');
+    const setupContainer = document.querySelector('.setup-container');
+    const authDisabled = setupContainer?.dataset.authDisabled === 'true';
     const modeOptions = document.querySelectorAll('.mode-option');
     const configTabs = document.querySelectorAll('.config-tab');
     const configPreview = document.getElementById('config-preview');
@@ -50,7 +52,8 @@ document.addEventListener('DOMContentLoaded', function() {
     const realpowerInput = document.getElementById('ups-realpower-nominal');
     
     // Current step (1-based)
-    let currentStep = 1;
+    const firstStep = authDisabled ? 2 : 1;
+    let currentStep = firstStep;
     let selectedMode = null;
     let configData = null;
     let configFiles = {};
@@ -66,6 +69,32 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Hide the save button initially - it will only be shown after successful test
     saveBtn.classList.add('hidden');
+
+    if (authDisabled) {
+        const adminStepIndicator = document.querySelector('.step[data-step="1"]');
+        const adminStepContent = document.getElementById('step-1');
+
+        if (adminStepIndicator) {
+            adminStepIndicator.classList.add('hidden');
+        }
+
+        if (adminStepContent) {
+            adminStepContent.classList.add('hidden');
+        }
+
+        let displayStep = 1;
+        steps.forEach(stepEl => {
+            if (stepEl.classList.contains('hidden')) {
+                return;
+            }
+
+            const numberEl = stepEl.querySelector('.step-number');
+            if (numberEl) {
+                numberEl.textContent = displayStep;
+            }
+            displayStep += 1;
+        });
+    }
     
     // Add event listeners
     prevBtn.addEventListener('click', goToPreviousStep);
@@ -95,6 +124,9 @@ document.addEventListener('DOMContentLoaded', function() {
             closeModal();
         }
     });
+
+    updateStepIndicators(currentStep);
+    updateButtons(currentStep);
     
     /**
      * Set up configuration method radio buttons
@@ -626,7 +658,7 @@ document.addEventListener('DOMContentLoaded', function() {
      */
     function resetWizard() {
         // Reset step
-        goToStep(1);
+        goToStep(firstStep);
         
         // Reset mode selection
         selectedMode = null;
@@ -695,21 +727,21 @@ document.addEventListener('DOMContentLoaded', function() {
                 .then(data => {
                     console.log('Configuration deletion result:', data);
                     // Go back after files are deleted
-                    if (currentStep > 1) {
+                    if (currentStep > firstStep) {
                         goToStep(currentStep - 1);
                     }
                 })
                 .catch(error => {
                     console.error('Error deleting configuration:', error);
                     // Still go back even if deletion fails
-                    if (currentStep > 1) {
+                    if (currentStep > firstStep) {
                         goToStep(currentStep - 1);
                     }
                 });
             }
         } else {
             // Normal back button behavior for other steps
-            if (currentStep > 1) {
+            if (currentStep > firstStep) {
                 goToStep(currentStep - 1);
             }
         }
@@ -805,7 +837,7 @@ document.addEventListener('DOMContentLoaded', function() {
      * @param {number} step - The current step number
      */
     function updateButtons(step) {
-        if (step === 1) {
+        if (step === firstStep) {
             // First step (Admin Setup): hide previous button, show next button aligned right
             prevBtn.classList.add('hidden');
             nextBtn.classList.remove('hidden');
@@ -849,6 +881,11 @@ document.addEventListener('DOMContentLoaded', function() {
 
         // Validate current step
         if (currentStep === 1) {
+            if (authDisabled) {
+                goToStep(currentStep + 1);
+                return;
+            }
+
             // Validate Admin Setup fields
             const adminUsername = document.getElementById('admin_username').value.trim();
             const adminPassword = document.getElementById('admin_password').value.trim();
@@ -1083,6 +1120,10 @@ document.addEventListener('DOMContentLoaded', function() {
      * Go to a specific step
      */
     function goToStep(step) {
+        if (step < firstStep) {
+            step = firstStep;
+        }
+
         // Store the current step before updating
         const previousStep = currentStep;
         

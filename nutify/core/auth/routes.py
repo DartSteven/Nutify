@@ -6,7 +6,16 @@ initial setup, and admin panel.
 """
 
 from flask import Blueprint, render_template, request, redirect, url_for, flash, jsonify, current_app
-from . import login_user, logout_user, is_authenticated, get_current_user, is_login_configured, is_admin, require_admin
+from . import (
+    login_user,
+    logout_user,
+    is_authenticated,
+    get_current_user,
+    is_login_configured,
+    is_admin,
+    is_auth_disabled,
+    require_admin
+)
 from datetime import datetime
 import pytz
 from core.logger import web_logger as logger
@@ -17,6 +26,12 @@ auth_bp = Blueprint('auth', __name__, url_prefix='/auth')
 @auth_bp.route('/login', methods=['GET', 'POST'])
 def login():
     """Login page and handler"""
+    if is_auth_disabled():
+        if not is_login_configured():
+            flash('Authentication is disabled. Create an admin user first.', 'info')
+            return redirect(url_for('auth.setup'))
+        flash('Authentication is disabled', 'info')
+        return redirect(url_for('index'))
     # If already authenticated, redirect to main page
     if is_authenticated():
         return redirect(url_for('index'))
@@ -42,6 +57,8 @@ def login():
 @auth_bp.route('/logout')
 def logout():
     """Logout handler"""
+    if is_auth_disabled():
+        return redirect(url_for('index'))
     logout_user()
     flash('You have been logged out', 'success')
     return redirect(url_for('auth.login'))
@@ -49,6 +66,9 @@ def logout():
 @auth_bp.route('/setup', methods=['GET', 'POST'])
 def setup():
     """Initial setup page for creating the first user"""
+    if is_auth_disabled() and is_login_configured():
+        flash('Authentication is disabled', 'info')
+        return redirect(url_for('index'))
     # If login is already configured, redirect to login
     if is_login_configured():
         return redirect(url_for('auth.login'))
@@ -85,15 +105,18 @@ def setup():
             
             user = LoginAuth.create_user(username, password, role='administrator', is_admin=True)
             
-            # Automatically log in the user after setup
+            # Automatically log in the user after setup (unless auth is disabled)
+            if is_auth_disabled():
+                flash('Login system configured successfully!', 'success')
+                logger.info(f"🔐 Initial setup completed - created user: {username}")
+                return redirect(url_for('index'))
             if login_user(username, password):
                 flash('Login system configured successfully! You are now logged in.', 'success')
                 logger.info(f"🔐 Initial setup completed - created and logged in user: {username}")
                 return redirect(url_for('index'))
-            else:
-                flash('Login system configured successfully! You can now log in.', 'success')
-                logger.info(f"🔐 Initial setup completed - created user: {username}")
-                return redirect(url_for('auth.login'))
+            flash('Login system configured successfully! You can now log in.', 'success')
+            logger.info(f"🔐 Initial setup completed - created user: {username}")
+            return redirect(url_for('auth.login'))
         except Exception as e:
             flash(f'Error creating user: {str(e)}', 'error')
             logger.error(f"🔐 Error during initial setup: {str(e)}")
@@ -103,6 +126,9 @@ def setup():
 @auth_bp.route('/admin', methods=['GET', 'POST'])
 def admin():
     """Admin panel for managing login credentials"""
+    if is_auth_disabled():
+        flash('Authentication is disabled', 'info')
+        return redirect(url_for('index'))
     # Check if user is authenticated
     if not is_authenticated():
         return redirect(url_for('auth.login', next=request.url))
@@ -209,8 +235,23 @@ def api_status():
     permissions = {}
     user_role = None
     
+
+    if is_auth_disabled():
+        permissions = {
+            'home': True,
+            'energy': True,
+            'power': True,
+            'battery': True,
+            'voltage': True,
+            'info': True,
+            'command': True,
+            'settings': True,
+            'events': True,
+            'options': True
+        }
+
     # If user is authenticated, get their permissions and role
-    if is_authenticated() and current_user:
+    if not is_auth_disabled() and is_authenticated() and current_user:
         try:
             from . import LoginAuth
             if LoginAuth:
@@ -231,12 +272,15 @@ def api_status():
         'is_configured': is_login_configured(),
         'current_user': current_user,
         'is_admin': is_admin(),
-        'permissions': permissions
+        'permissions': permissions,
+        'auth_disabled': is_auth_disabled()
     })
 
 @auth_bp.route('/api/login', methods=['POST'])
 def api_login():
     """API endpoint for login"""
+    if is_auth_disabled():
+        return jsonify({'error': 'Authentication is disabled'}), 403
     data = request.get_json()
     if not data:
         return jsonify({'error': 'Invalid request data'}), 400
@@ -259,12 +303,24 @@ def api_login():
 @auth_bp.route('/api/logout', methods=['POST'])
 def api_logout():
     """API endpoint for logout"""
+    if is_auth_disabled():
+        return jsonify({
+            'success': True,
+            'message': 'Authentication disabled - no logout required',
+            'redirect_url': url_for('index')
+        })
     logout_user()
-    return jsonify({'success': True, 'message': 'Logout successful'})
+    return jsonify({
+        'success': True,
+        'message': 'Logout successful',
+        'redirect_url': url_for('auth.login')
+    })
 
 @auth_bp.route('/api/change-password', methods=['POST'])
 def api_change_password():
     """API endpoint for changing password"""
+    if is_auth_disabled():
+        return jsonify({'error': 'Authentication is disabled'}), 403
     if not is_authenticated():
         return jsonify({'error': 'Authentication required'}), 401
     
@@ -305,6 +361,8 @@ def api_change_password():
 @auth_bp.route('/api/change-username', methods=['POST'])
 def api_change_username():
     """API endpoint for changing username"""
+    if is_auth_disabled():
+        return jsonify({'error': 'Authentication is disabled'}), 403
     if not is_authenticated():
         return jsonify({'error': 'Authentication required'}), 401
     
@@ -716,4 +774,4 @@ def api_admin_update_user_options_tabs(user_id):
 def register_auth_routes(app):
     """Register authentication routes with the Flask app"""
     app.register_blueprint(auth_bp)
-    logger.info("🔐 Authentication routes registered") 
+    logger.info("🔐 Authentication routes registered")

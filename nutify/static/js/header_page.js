@@ -265,14 +265,22 @@ async function headerLogout() {
             },
         });
 
+        let redirectUrl = '/auth/login';
+
         if (response.ok) {
-            // Redirect to login page
-            window.location.href = '/auth/login';
+            try {
+                const data = await response.json();
+                if (data && data.redirect_url) {
+                    redirectUrl = data.redirect_url;
+                }
+            } catch (error) {
+                console.error('Failed to parse logout response:', error);
+            }
         } else {
             console.error('Logout failed');
-            // Fallback: redirect to login page anyway
-            window.location.href = '/auth/login';
         }
+
+    window.location.href = redirectUrl;
     } catch (error) {
         console.error('Error during logout:', error);
         // Fallback: redirect to login page anyway
