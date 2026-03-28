@@ -1,0 +1,21 @@
+# Server Configuration
+DEBUG_MODE = development
+SERVER_PORT = 5050
+SERVER_HOST = 0.0.0.0
+
+# Database Configuration
+DB_NAME = nutify.db.sqlite
+INSTANCE_PATH = instance
+
+# Log level: DEBUG, INFO, WARNING, ERROR, CRITICAL
+LOG_LEVEL = DEBUG
+
+# Werkzeug log control: true or false
+LOG_WERKZEUG = true
+
+# General logging enabled: true or false
+LOG = true
+
+# SSL Configuration
+SSL_ENABLED = false
+

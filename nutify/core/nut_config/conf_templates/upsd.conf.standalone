@@ -1,0 +1,6 @@
+# Network UPS Tools: upsd.conf
+# Configuration for upsd server in standalone mode
+
+# Listen on localhost only for standalone mode
+LISTEN 127.0.0.1 3493
+MAXCONN 16 

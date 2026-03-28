@@ -1,0 +1,413 @@
+<!-- Report: HTML template used by Nutify frontend and server-rendered views. -->
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            line-height: 1.5;
+            margin: 0;
+            padding: 0;
+            background-color: #f7fafc;
+        }
+
+        .email-container {
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 2rem;
+            background-color: white;
+            border-radius: 8px;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+        }
+
+        .email-header {
+            text-align: center;
+            margin-bottom: 2rem;
+            padding: 2rem;
+            background-color: #f8fafc;
+            border-bottom: 3px solid #3b82f6;
+            border-radius: 8px 8px 0 0;
+        }
+
+        .report-section {
+            margin-bottom: 2rem;
+            padding: 1rem;
+            border: 1px solid #e5e7eb;
+            border-radius: 8px;
+            overflow: hidden;
+        }
+
+        .report-title {
+            font-size: 1.25rem;
+            font-weight: 600;
+            color: #1f2937;
+            margin-bottom: 1rem;
+        }
+
+        /* Table-based layout for problematic email clients */
+        .stats-grid-table {
+            width: 100%;
+            display: table;
+            border-collapse: separate;
+            border-spacing: 10px;
+            margin-bottom: 1rem;
+        }
+
+        .stats-row {
+            display: table-row;
+        }
+
+        .stat-card-table {
+            display: table-cell;
+            width: 25%;
+            background-color: #f8fafc;
+            padding: 1rem;
+            border-radius: 6px;
+            vertical-align: top;
+        }
+
+        /* Modern layout for good email clients */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem;
+            margin-bottom: 1rem;
+        }
+
+        .stat-card {
+            background-color: #f8fafc;
+            padding: 1rem;
+            border-radius: 6px;
+        }
+
+        .stat-label {
+            font-size: 0.875rem;
+            color: #6b7280;
+            margin-bottom: 0.25rem;
+        }
+
+        .stat-value {
+            font-size: 1.25rem;
+            font-weight: 600;
+            color: #1f2937;
+        }
+
+        .chart-container {
+            width: 100%;
+            margin: 1rem 0;
+            background: #f8fafc;
+            padding: 1rem;
+            border-radius: 6px;
+            box-sizing: border-box;
+        }
+
+        .chart-container img {
+            width: 100%;
+            height: auto;
+            display: block;
+            max-width: 100%;
+        }
+
+        /* Footer styles */
+        .email-footer {
+            text-align: center;
+            margin-top: 2rem;
+            padding-top: 1rem;
+            border-top: 1px solid #e2e8f0;
+            font-size: 0.875rem;
+            color: #64748b;
+        }
+
+        .footer-links {
+            display: inline-block;
+            margin: 1rem 0;
+            padding: 0.5rem 1rem;
+            background-color: #f8fafc;
+            border-radius: 6px;
+            line-height: 1.75;
+        }
+
+        .footer-link {
+            color: #64748b;
+            text-decoration: none;
+            padding: 0 0.5rem;
+            transition: color 0.2s;
+        }
+
+        .footer-link:hover {
+            color: #3b82f6;
+        }
+
+        .footer-separator {
+            color: #94a3b8;
+            margin: 0 0.5rem;
+        }
+
+        .footer-icon {
+            display: inline-block;
+            margin-right: 0.25rem;
+            vertical-align: middle;
+        }
+
+        .footer-copyright {
+            margin-top: 1rem;
+            color: #94a3b8;
+        }
+    </style>
+</head>
+<body>
+    <div class="email-container">
+        <div class="email-header">
+            <h1>{{ server_name }} UPS Performance Report</h1>
+            <p>Period: {{ report_period }}</p>
+        </div>
+
+        {% if include_energy %}
+        <div class="report-section">
+            <h2 class="report-title">Energy Report</h2>
+            {% if is_problematic_provider %}
+            <div class="stats-grid-table">
+                <div class="stats-row">
+                    <div class="stat-card-table">
+                        <div class="stat-label">Total Energy</div>
+                        <div class="stat-value">{{ energy_stats.totalEnergy|default(0) }} kWh</div>
+                    </div>
+                    <div class="stat-card-table">
+                        <div class="stat-label">Total Cost</div>
+                        <div class="stat-value">{{ energy_stats.totalCost|default(0)|round(2) }} {{ currency }}</div>
+                    </div>
+                    <div class="stat-card-table">
+                        <div class="stat-label">Average Load</div>
+                        <div class="stat-value">{{ energy_stats.avgLoad|default(0) }} %</div>
+                    </div>
+                    <div class="stat-card-table">
+                        <div class="stat-label">CO₂ Emissions</div>
+                        <div class="stat-value">{{ energy_stats.co2|default(0)|round(2) }} kg</div>
+                    </div>
+                </div>
+            </div>
+            {% else %}
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div class="stat-label">Total Energy</div>
+                    <div class="stat-value">{{ energy_stats.totalEnergy|default(0) }} kWh</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label">Total Cost</div>
+                    <div class="stat-value">{{ energy_stats.totalCost|default(0)|round(2) }} {{ currency }}</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label">Average Load</div>
+                    <div class="stat-value">{{ energy_stats.avgLoad|default(0) }} %</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label">CO₂ Emissions</div>
+                    <div class="stat-value">{{ energy_stats.co2|default(0)|round(2) }} kg</div>
+                </div>
+            </div>
+            {% endif %}
+            {% if energy_chart_url %}
+            <div class="chart-container">
+                <img src="{{ energy_chart_url }}" alt="Energy Trend" style="width: 100%;">
+            </div>
+            {% endif %}
+        </div>
+        {% endif %}
+
+        {% if include_battery %}
+        <div class="report-section">
+            <h2 class="report-title">Battery Report</h2>
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div class="stat-label">Average Charge</div>
+                    <div class="stat-value">{{ battery_stats.battery_charge.avg|default(0)|round(1) }}%</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label">Runtime</div>
+                    <div class="stat-value">
+                        {{ battery_stats.battery_runtime.avg|default(0)|round(1) }} min
+                    </div>
+                </div>
+                
+                {% if show_voltage_section %}
+                <div class="stat-card">
+                    <div class="stat-label">Voltage</div>
+                    <div class="stat-value">
+                        {% if has_battery_voltage %}
+                            {{ battery_stats.battery_voltage.avg|round(1) }} V (Battery)
+                        {% elif has_input_voltage and has_output_voltage %}
+                            In: {{ input_voltage_value|round(1) }} V / Out: {{ output_voltage_value|round(1) }} V
+                        {% elif has_input_voltage %}
+                            {{ input_voltage_value|round(1) }} V (Input)
+                        {% elif has_output_voltage %}
+                            {{ output_voltage_value|round(1) }} V (Output)
+                        {% endif %}
+                    </div>
+                </div>
+                {% endif %}
+                
+                <div class="stat-card">
+                    <div class="stat-label">Health Status</div>
+                    <div class="stat-value">
+                        {% if battery_stats.health_score is defined and battery_stats.health_score > 0 %}
+                            {{ "Good" if battery_stats.health_score >= 80 else "Fair" if battery_stats.health_score >= 50 else "Poor" }}
+                            ({{ battery_stats.health_score|round }}%)
+                        {% elif battery_stats.health is defined %}
+                            {{ battery_stats.health }}
+                        {% else %}
+                            Unknown
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+            {% if battery_chart_url %}
+            <div class="chart-container">
+                <img src="{{ battery_chart_url }}" alt="Battery Performance" style="width: 100%;">
+            </div>
+            {% endif %}
+        </div>
+        {% endif %}
+
+        {% if include_power %}
+        <div class="report-section">
+            <h2 class="report-title">Power Report</h2>
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div class="stat-label">Total Power Consumption</div>
+                    <div class="stat-value">{{ power_stats.total_consumption|default(0)|round(2) }} kWh</div>
+                </div>
+
+                <div class="stat-card">
+                    <div class="stat-label">Voltage</div>
+                    <div class="stat-value">In: {{ power_stats.input_voltage|default(0)|round(1) }}V / Out: {{ power_stats.output_voltage|default(0)|round(1) }}V</div>
+                </div>
+
+                <div class="stat-card">
+                    <div class="stat-label">Nominal Power</div>
+                    <div class="stat-value">{{ power_stats.nominal_power|default(0)|round(1) }}W</div>
+                </div>
+
+                <div class="stat-card">
+                    <div class="stat-label">Load</div>
+                    <div class="stat-value">{{ power_stats.load|default(0)|round(1) }}%</div>
+                </div>
+            </div>
+            {% if power_chart_url %}
+            <div class="chart-container">
+                <img src="{{ power_chart_url }}" alt="Power Analysis" style="width: 100%;">
+            </div>
+            {% endif %}
+        </div>
+        {% endif %}
+
+        {% if include_voltage %}
+        <div class="report-section">
+            <h2 class="report-title">Voltage Report</h2>
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div class="stat-header">Input Voltage</div>
+                    <div class="stat-value">{{ voltage_stats.input_voltage|default(0)|round(1) }} V</div>
+                    <div class="stat-details">
+                        Min: {{ voltage_stats.input_voltage_min|default(0)|round(1) }} V
+                        Max: {{ voltage_stats.input_voltage_max|default(0)|round(1) }} V
+                    </div>
+                </div>
+
+                <div class="stat-card">
+                    <div class="stat-header">Output Voltage</div>
+                    <div class="stat-value">{{ voltage_stats.output_voltage|default(0)|round(1) }} V</div>
+                    <div class="stat-details">
+                        Min: {{ voltage_stats.output_voltage_min|default(0)|round(1) }} V
+                        Max: {{ voltage_stats.output_voltage_max|default(0)|round(1) }} V
+                    </div>
+                </div>
+
+                <div class="stat-card">
+                    <div class="stat-header">Transfer Thresholds</div>
+                    <div class="stat-value">{{ voltage_stats.input_transfer_low|default(0)|round(1) }} - {{ voltage_stats.input_transfer_high|default(0)|round(1) }} V</div>
+                    <div class="stat-details">
+                        Low: {{ voltage_stats.input_transfer_low|default(0)|round(1) }} V
+                        High: {{ voltage_stats.input_transfer_high|default(0)|round(1) }} V
+                    </div>
+                </div>
+
+                <div class="stat-card">
+                    <div class="stat-header">Frequency</div>
+                    <div class="stat-value">
+                        In: {{ voltage_stats.input_frequency|default(0)|round(1) }} Hz /
+                        Out: {{ voltage_stats.output_frequency|default(0)|round(1) }} Hz
+                    </div>
+                    <div class="stat-details">
+                        Input: {{ voltage_stats.input_frequency|default(0)|round(1) }} Hz
+                        Output: {{ voltage_stats.output_frequency|default(0)|round(1) }} Hz
+                    </div>
+                </div>
+            </div>
+            
+            {% if voltage_chart_url %}
+            <div class="chart-container">
+                <img src="{{ voltage_chart_url }}" alt="Voltage Chart" style="width: 100%;">
+            </div>
+            {% endif %}
+        </div>
+        {% endif %}
+
+        {% if include_events %}
+        <div class="report-section">
+            <h2 class="report-title">Events Report</h2>
+            <div class="events-list">
+                <table style="width: 100%; border-collapse: collapse;">
+                    <thead>
+                        <tr style="background-color: #f8fafc; text-align: left;">
+                            <th style="padding: 0.75rem; border-bottom: 1px solid #e2e8f0;">Events</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for event in events %}
+                        <tr style="border-bottom: 1px solid #e2e8f0;">
+                            <td style="padding: 0.75rem; font-family: monospace;">
+                                <span style="color: #64748b;">{{ event.timestamp }}</span>
+                                {% if event.event_type == 'ONBATT' %}
+                                    <span style="color: #f59e0b;">Switched to Battery</span>
+                                {% elif event.event_type == 'ONLINE' %}
+                                    <span style="color: #10b981;">Back on Mains</span>
+                                {% elif event.event_type == 'LOWBATT' %}
+                                    <span style="color: #ef4444;">Battery Low</span>
+                                {% elif event.event_type == 'COMMOK' %}
+                                    <span style="color: #10b981;">Communication OK</span>
+                                {% elif event.event_type == 'COMMBAD' or event.event_type == 'NOCOMM' %}
+                                    <span style="color: #ef4444;">Communication Lost</span>
+                                {% elif event.event_type == 'SHUTDOWN' %}
+                                    <span style="color: #ef4444;">Shutdown in Progress</span>
+                                {% elif event.event_type == 'REPLBATT' %}
+                                    <span style="color: #f59e0b;">Replace Battery</span>
+                                {% elif event.event_type == 'NOPARENT' %}
+                                    <span style="color: #ef4444;">Parent Process Lost</span>
+                                {% else %}
+                                    <span style="color: #6b7280;">{{ event.description }}</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        {% endif %}
+
+        <div class="email-footer">
+            <p>Generated by {{ server_name }} UPS Monitor on {{ generation_date }}</p>
+            <div class="footer-links">
+                <span class="footer-icon">&#128187;</span>
+                <a href="https://github.com/DartSteven/Nutify" class="footer-link">github.com/DartSteven/Nutify</a>
+                <span class="footer-separator">|</span>
+                <span class="footer-icon">&#9749;</span>
+                <a href="https://buymeacoffee.com/dartsteven" class="footer-link">buymeacoffee.com/dartsteven</a>
+            </div>
+            <p class="footer-copyright">© {{ current_year }} Nutify. All rights reserved.</p>
+        </div>
+    </div>
+</body>
+</html> 

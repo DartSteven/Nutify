@@ -1,0 +1,128 @@
+VERSION = 0.2.0
+LAST_UPDATE = 28/03/2026
+STATUS = Public Testing
+
+CHANGELOG = """
+
+[28/03/2026] 0.2.0
+- Full frontend migration to React + TypeScript + Vite SPA
+- Multi-UPS promoted as first-class runtime workflow across setup, dashboard, API, and reports
+- New setup wizard profile/topology flow (`single`/`multi`, `remote_only`/`local_only`/`mixed`)
+- New dedicated Multi-UPS page and active target context switching
+- Settings split into target scope and system scope views
+- Added Operations section for runtime formulas (power/energy/cost/CO2)
+- Enhanced Remapper section for canonical variable mapping per target
+- Canonical multi-target telemetry flow standardized on `ups_monitor_data`
+- Runtime/service hardening with degraded startup mode support and MONITOR line normalization
+- Docker pipeline updated with frontend build stage and NUT 2.8.4 image line
+
+[07/07/2025] 0.1.7
+- Moved to NUT 2.8.3 for improved hardware compatibility and stability
+- Rebuilt code for enhanced stability and performance
+- Added admin and user account management system
+- Implemented user authentication with administrator and user roles
+- Administrator: Full access to all features and configurations
+- User: Configurable permissions for individual pages and options tabs
+- Added secure session management with automatic timeout
+- Enhanced Setup Wizard with improved button alignment and navigation
+- Fixed configuration editor state persistence across page navigation
+- Removed unnecessary "Back to Dashboard" link from login page
+- Fixed time and battery report generation with enhanced pandas integration
+- Improved error handling for incorrect password scenarios
+- Enhanced security with comprehensive input validation and sanitization
+- Upgraded database schema with role-based permissions and better integrity
+- Fixed various UI inconsistencies and improved responsive design
+- Added secure password handling and user session management
+
+[15/04/2025]  0.1.6 (Configuration Migration Update)
+- ⚠️ MAJOR CHANGE: Transitioned from Docker Compose configuration to Setup Wizard interface
+- ⚠️ Configuration tables will be reset during migration (UPS metric data preserved)
+- ⚠️ Manual Docker Compose configuration is no longer supported
+- Added Setup Wizard for easier NUT configuration without manual docker-compose editing
+- Added RAM and CPU usage widget in header for system monitoring
+- Added Discord Webhook integration for notifications
+- Added "Download JSON" button in options for exporting complete UPS data
+- Added connection checker with polling recovery for UPS connection failures
+- Added Initial Setup Variables card in Advanced options
+- Fixed Amazon SES email provider configuration for better reliability
+- Simplified Docker Compose configuration with mandatory SECRET_KEY for encryption
+- Added more UPS drivers (blazer_usb, blazer_ser, richcomm_usb, tripplite_usb, riello_usb and more)
+- Improved build system with specialized scripts for different architectures
+
+
+[08/04/2025]  0.1.5
+- Fix Mail Provider in Custom mode and Mailgun.
+- Fix TLS/STARTTLS
+
+[03/04/2025]  0.1.4
+- Restructured codebase into modular Python packages for improved maintainability
+- Migrated database operations to pure ORM for better data management
+- Added Ntfy integration for push notifications
+- Added Webhook support for third-party integrations
+- Added Advanced section for NUT configuration and polling settings
+- Reorganized JavaScript code into modular components for better organization
+- Enhanced options page with specialized modules for each configuration section
+- Improved database integrity checks and model relationships
+- Added event-based notification system with customizable triggers
+- Enhanced socket communication with improved reliability
+- Modernized UI components and responsive design
+- Added detailed logging controls in Advanced settings
+- Optimized backend performance with improved caching strategy
+- Enhanced email notification system with multiple account support
+- Added streamlined provider configuration for easier email setup
+- Added official Nutify logo and favicon for improved branding
+- Completely redesigned event polling mechanism: replaced direct upsmon.conf queries with native Python integration
+- Implemented WebSocket-based caching for real-time data, significantly reducing CPU and RAM usage
+
+[10/03/2025]  0.1.3
+- Enhanced CLIENT mode reliability with multi-layered detection:
+- Improved service monitoring in CLIENT mode
+- Updated documentation with comprehensive CLIENT mode information
+- Improved CLIENT mode functionality
+- Updated documentation with clearer CLIENT mode setup instructions
+- Added more comprehensive error messages for improved troubleshooting
+- Expanded UPS driver support to include multiple specialized drivers
+- Optimized driver build configuration for improved compilation stability
+- Updated documentation to reflect the expanded driver support
+- Added comprehensive guidance on selecting the appropriate driver for different UPS models
+- Added operational mode selection with new NUT_TYPE variable
+- Implemented automatic configuration based on selected mode
+- Added flag file mechanism to indicate client mode to all scripts
+- Enhanced documentation with detailed explanations of both modes
+- Improved user experience with clearer configuration options
+
+[08/03/2025] 0.1.2
+- Added international time format support with robust parsing for AM/PM notation
+- Added enhanced service summary at container startup
+- Improved default values for all configuration parameters
+- Simplified UPS authentication with automatic credential reuse
+- Clearly marked required parameters in configuration
+- Enhanced documentation in docker-compose.yaml
+- Added support for 'latest' Docker image tags (amd64-latest, arm64-latest, armv7-latest)
+- Updated documentation to reflect the new tagging system
+- Enhanced Docker Hub integration with automatic latest tag updates
+- Simplified deployment with always-updated images
+- Added automatic SSL certificate generation and management
+- Added SSL configuration options in docker-compose.yaml
+- Implemented secure HTTPS connections when SSL_ENABLED=true
+- Fixed permissions for SSL certificates and directory
+- Fixed Dockerfile build error by creating SSL directory instead of copying from non-existent source
+- Fixed dummy UPS fallback to only activate when USE_DUMMY_UPS=true
+- Added gunicorn with eventlet worker for robust SSL support
+- Improved SSL handling with dynamic WSGI file generation
+
+[07/03/2025] 0.1.1
+- Added automatic check and fix for SQLite database permissions
+- Improved templates to handle missing data correctly
+- Added existence checks for all fields in templates (battery.html, power.html, energy.html, header.html)
+- Fixed "sqlite3.OperationalError: attempt to write a readonly database" error
+- Enhanced error handling for UPS devices that don't provide all standard data
+- Modified Dockerfile to add nut user to necessary groups (plugdev, dialout, input, usb)
+- Added dummy UPS configuration file for fallback when no physical UPS is detected
+- Enabled startup and debug logging by default
+- Added netclient for remote UPS monitoring
+- Simplified UPS verification method
+
+[05/03/2025] 0.1.0
+- First version of Nutify
+"""

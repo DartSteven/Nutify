@@ -1,0 +1,11 @@
+# Network UPS Tools: ups.conf
+# UPS definitions for NUT
+
+[{{UPS_NAME}}]
+    driver = "{{DRIVER}}"
+    port = "{{PORT}}"
+    desc = "{{DESCRIPTION}}"
+    pollinterval = 1
+    pollfreq = 1
+    user = nut
+    group = nut 

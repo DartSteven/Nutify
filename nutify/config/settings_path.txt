@@ -1,0 +1,76 @@
+# NUT Configuration Directory Paths
+# These paths are used for the location of NUT configuration files
+
+# DOCKER
+
+# Path to NUT configuration files
+NUT_CONF_DIR = /etc/nut
+NUT_DRIVER_DIR = /usr/lib/nut
+
+# NUT Configuration File Names
+NUT_CONF_FILE = nut.conf
+UPS_CONF_FILE = ups.conf
+UPSD_CONF_FILE = upsd.conf
+UPSD_USERS_FILE = upsd.users
+UPSMON_CONF_FILE = upsmon.conf
+
+# NUT Certificate Files
+CERTFILE = upsd.cert
+KEYFILE = upsd.key
+CERTPATH = cert
+
+# NUT Binary Paths
+UPSC_BIN = /usr/bin/upsc
+UPSCMD_BIN = /usr/bin/upscmd
+UPSRW_BIN = /usr/bin/upsrw
+UPSD_BIN = /usr/sbin/upsd
+UPSMON_BIN = /usr/sbin/upsmon
+UPSDRVCTL_BIN = /usr/sbin/upsdrvctl
+
+# NUT Command Names (command names only)
+UPSC_CMD = upsc
+UPSCMD_CMD = upscmd
+UPSRW_CMD = upsrw
+UPSD_CMD = upsd
+UPSMON_CMD = upsmon
+UPSDRVCTL_CMD = upsdrvctl
+
+# NUT Full Commands with options
+NUT_START_DRIVER_CMD = /usr/sbin/upsdrvctl -u root start
+NUT_START_SERVER_CMD = /usr/sbin/upsd -u root
+NUT_START_MONITOR_CMD = /usr/sbin/upsmon
+NUT_STOP_DRIVER_CMD = /usr/sbin/upsdrvctl stop
+NUT_STOP_SERVER_CMD = /usr/sbin/upsd -c stop
+NUT_STOP_MONITOR_CMD = /usr/sbin/upsmon -c stop
+NUT_SCANNER_CMD = /usr/bin/nut-scanner
+
+# NUT Runtime Directories
+NUT_RUN_DIR = /var/run/nut
+NUT_LOG_DIR = /var/log/nut
+NUT_STATE_DIR = /var/run/nut
+
+# NUT PID Files
+NUT_DRIVER_PID = driver.pid
+NUT_UPSD_PID = upsd.pid
+NUT_UPSMON_PID = upsmon.pid
+
+# NUT Log Files
+NUT_DRIVER_LOG = driver.log
+NUT_SERVER_LOG = server.log
+NUT_UPSMON_LOG = upsmon.log
+NUT_NOTIFIER_LOG = notifier.log
+
+# NUT Port (standard NUT port for network connections)
+NUT_PORT = 3493 
+
+# NUT Service Control
+NUT_SERVICE_WAIT_TIME = 2
+NUT_SERVICE_START_TIMEOUT = 20 
+
+# Mail Configuration
+MSMTP_PATH = /usr/bin/msmtp
+TLS_CERT_PATH = /etc/ssl/certs/ca-certificates.crt
+
+# SSL Certificate Paths
+SSL_CERT = /app/ssl/cert.pem
+SSL_KEY = /app/ssl/key.pem

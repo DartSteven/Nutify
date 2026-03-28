@@ -1,0 +1,57 @@
+#!/bin/bash
+set -e
+
+# Docker entrypoint script - main entry point for the container
+
+# Source the common variables module
+SCRIPT_DIR="/usr/local/bin"
+. "$SCRIPT_DIR/common.sh"
+. "$SCRIPT_DIR/log.sh"
+. "$SCRIPT_DIR/filesystem.sh"
+. "$SCRIPT_DIR/motd.sh"
+
+# Always show startup message regardless of log settings
+echo ""
+
+# Log basic startup information using startup_log function
+startup_log "Starting NUT environment preparation"
+
+# Always show the MOTD at startup
+show_motd
+
+# Set system timezone before any redirects
+set_system_timezone
+
+# Create log directories and files before any redirects
+mkdir -p "$NUT_LOG_DIR"
+chmod 755 "$NUT_LOG_DIR"
+
+if [ "${ENABLE_LOGS}" = "Y" ]; then
+    for logfile in /var/log/msmtp.log /var/log/battery-monitor.log /var/log/nut-debug.log; do
+        touch "$logfile"
+        chown nut:nut "$logfile"
+        chmod 666 "$logfile"
+    done
+    startup_log "Log files created and permissions set"
+fi
+
+# Clean up any existing PID files to prevent conflicts
+cleanup_pid_files
+
+# Setup NUT directories with correct permissions
+setup_nut_directories
+
+# Detect USB devices
+detect_usb_devices
+
+# Fix USB permissions if applicable
+fix_usb_permissions
+
+# Generate email configuration
+setup_email_config
+
+# Log completion using startup_log function
+startup_log "Environment preparation complete, starting services..."
+
+# Done with environment preparation, pass control to next script
+exec "$@" 

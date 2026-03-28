@@ -1,0 +1,15 @@
+# Network UPS Tools: upsd.users
+# User access definitions for upsd
+
+# Admin user with full access
+[{{ADMIN_USERNAME}}]
+    password = "{{ADMIN_PASSWORD}}"
+    actions = SET
+    instcmds = ALL
+
+# Monitor user for upsmon with master privileges
+[{{MONITOR_USERNAME}}]
+    password = "{{MONITOR_PASSWORD}}"
+    upsmon {{UPS_NAME}} = master
+
+{{ADDITIONAL_USERS}} 

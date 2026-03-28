@@ -1,0 +1,177 @@
+<!-- Test Template: HTML template used by Nutify frontend and server-rendered views. -->
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
+        /* Inline styles for email compatibility */
+        :root {
+            --primary-color: #3182ce;
+            --secondary-color: #4a5568;
+            --text-primary: #2d3748;
+            --text-secondary: #718096;
+            --background-light: #f7fafc;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            line-height: 1.5;
+            color: #2d3748;
+            margin: 0;
+            padding: 0;
+            background-color: #f7fafc;
+        }
+
+        .email-container {
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 2rem;
+            background-color: white;
+            border-radius: 8px;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+        }
+
+        .email-header {
+            text-align: center;
+            margin-bottom: 2rem;
+            padding-bottom: 1rem;
+            border-bottom: 1px solid #e2e8f0;
+        }
+
+        .email-logo {
+            font-size: 2rem;
+            color: #3182ce;
+            margin-bottom: 1rem;
+        }
+
+        .email-title {
+            font-size: 1.5rem;
+            font-weight: 600;
+            color: #2d3748;
+            margin: 0;
+        }
+
+        .email-subtitle {
+            font-size: 1rem;
+            color: #718096;
+            margin-top: 0.5rem;
+        }
+
+        .email-content {
+            padding: 1rem 0;
+        }
+
+        .email-info-card {
+            background-color: #f7fafc;
+            border-radius: 6px;
+            padding: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .email-info-label {
+            font-size: 0.875rem;
+            color: #718096;
+            margin-bottom: 0.25rem;
+        }
+
+        .email-info-value {
+            font-size: 1rem;
+            color: #2d3748;
+            font-weight: 500;
+        }
+
+        .email-footer {
+            text-align: center;
+            margin-top: 2rem;
+            padding-top: 1rem;
+            border-top: 1px solid #e2e8f0;
+            font-size: 0.875rem;
+            color: #64748b;
+        }
+
+        .footer-links {
+            display: inline-block;
+            margin: 1rem 0;
+            padding: 0.5rem 1rem;
+            background-color: #f8fafc;
+            border-radius: 6px;
+            line-height: 1.75;
+        }
+
+        .footer-link {
+            color: #64748b;
+            text-decoration: none;
+            padding: 0 0.5rem;
+            transition: color 0.2s;
+        }
+
+        .footer-link:hover {
+            color: #3b82f6;
+        }
+
+        .footer-separator {
+            color: #94a3b8;
+            margin: 0 0.5rem;
+        }
+
+        .footer-icon {
+            display: inline-block;
+            margin-right: 0.25rem;
+            vertical-align: middle;
+        }
+
+        .footer-copyright {
+            margin-top: 1rem;
+            color: #94a3b8;
+        }
+    </style>
+</head>
+<body>
+    <div class="email-container">
+        <div class="email-header">
+            <div class="email-logo">
+                ⚡
+            </div>
+            <h1 class="email-title">{{ server_name }} UPS Monitor Test Email</h1>
+            <p class="email-subtitle">Email Configuration Test</p>
+        </div>
+
+        <div class="email-content">
+            <div class="email-info-card">
+                <div class="email-info-label">Server Name</div>
+                <div class="email-info-value">{{ server_name }}</div>
+            </div>
+
+            <div class="email-info-card">
+                <div class="email-info-label">UPS Model</div>
+                <div class="email-info-value">{{ ups_model }}</div>
+            </div>
+
+            <div class="email-info-card">
+                <div class="email-info-label">Serial Number</div>
+                <div class="email-info-value">{{ ups_serial }}</div>
+            </div>
+
+            <div class="email-info-card">
+                <div class="email-info-label">Test Date</div>
+                <div class="email-info-value">{{ test_date }}</div>
+            </div>
+
+            <p>This is a test email to verify your SMTP configuration. If you're receiving this email, it means your email settings are working correctly.</p>
+        </div>
+
+        <div class="email-footer">
+            <p>🧪 Test notification from {{ server_name }} UPS Monitor system</p>
+            <div class="footer-links">
+                <span class="footer-icon">&#128187;</span>
+                <a href="https://github.com/DartSteven/Nutify" class="footer-link">github.com/DartSteven/Nutify</a>
+                <span class="footer-separator">|</span>
+                <span class="footer-icon">&#9749;</span>
+                <a href="https://buymeacoffee.com/dartsteven" class="footer-link">buymeacoffee.com/dartsteven</a>
+            </div>
+            <p class="footer-copyright">© {{ current_year }} UPS Monitor. All rights reserved.</p>
+        </div>
+    </div>
+</body>
+</html> 

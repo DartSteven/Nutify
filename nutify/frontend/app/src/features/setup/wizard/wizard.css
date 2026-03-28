@@ -1,0 +1,239 @@
+/**
+ * Wizard.
+ *
+ * Stylesheet for Nutify UI components and layout presentation.
+ */
+
+.setup-container {
+  --wizard-detail-bg: #f8fafc;
+  --wizard-detail-border: #dbe4ee;
+  --wizard-detail-title: #1f2d3d;
+}
+
+:root[data-theme='dark'] .setup-container {
+  --wizard-detail-bg: var(--bg-tertiary);
+  --wizard-detail-border: var(--border-color);
+  --wizard-detail-title: var(--text-primary);
+}
+
+.setup-container .wizard-detail-card,
+.setup-container .wizard-primary-two-col .wizard-auto-detect-details {
+  padding: 18px;
+  border: 1px solid var(--wizard-detail-border);
+  border-radius: 10px;
+  background: var(--wizard-detail-bg);
+}
+
+.setup-container .wizard-detail-card .wizard-detail-card-title,
+.setup-container .wizard-primary-two-col .wizard-auto-detect-details .wizard-auto-detect-details-title {
+  grid-column: 1 / -1;
+  margin: 0 0 4px;
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--wizard-detail-title);
+}
+
+.setup-container .wizard-detail-card .form-group:last-child,
+.setup-container .wizard-primary-two-col .wizard-auto-detect-details .form-group:last-child {
+  margin-bottom: 0;
+}
+
+.setup-container .wizard-detail-card .compact-polling-input-row,
+.setup-container .wizard-primary-two-col .wizard-auto-detect-details .compact-polling-input-row {
+  display: flex;
+  width: 100%;
+}
+
+.setup-container .wizard-detail-card .compact-polling-input,
+.setup-container .wizard-primary-two-col .wizard-auto-detect-details .compact-polling-input {
+  width: 100% !important;
+  min-width: 0;
+  max-width: none;
+  text-align: left;
+}
+
+.setup-container .wizard-detail-card .compact-polling-help,
+.setup-container .wizard-primary-two-col .wizard-auto-detect-details .compact-polling-help {
+  display: none;
+}
+
+.setup-container .wizard-detail-card input[type='number']::-webkit-outer-spin-button,
+.setup-container .wizard-detail-card input[type='number']::-webkit-inner-spin-button,
+.setup-container .wizard-primary-two-col .wizard-auto-detect-details input[type='number']::-webkit-outer-spin-button,
+.setup-container .wizard-primary-two-col .wizard-auto-detect-details input[type='number']::-webkit-inner-spin-button {
+  opacity: 1;
+}
+
+#multi-target-remote-fields.wizard-detail-card,
+#multi-target-local-fields.wizard-detail-card,
+#multi-target-location-fields.wizard-detail-card {
+  margin-top: 10px;
+}
+
+.setup-container .multi-target-overview-card {
+  margin-top: 10px;
+}
+
+.setup-container .multi-target-remote-top-grid {
+  align-items: start;
+}
+
+.setup-container .wizard-single-remote-top-grid {
+  align-items: start;
+}
+
+.setup-container .multi-target-overview-bottom-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.4fr) minmax(220px, 0.9fr) minmax(220px, 0.9fr);
+  gap: 18px;
+  margin-top: 18px;
+}
+
+.setup-container .wizard-single-remote-overview-card {
+  margin-top: 10px;
+}
+
+.setup-container .wizard-single-remote-bottom-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(220px, 0.72fr);
+  gap: 18px;
+  margin-top: 18px;
+}
+
+.setup-container .multi-target-primary-toggle {
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
+  align-items: center;
+  text-align: center;
+}
+
+.setup-container .multi-target-primary-label {
+  margin-bottom: 12px;
+  font-size: 0.95rem;
+  font-weight: 400;
+  color: var(--text-primary);
+}
+
+.setup-container .multi-target-primary-check {
+  min-height: 46px;
+  align-items: center;
+  justify-content: center;
+}
+
+.setup-container .multi-target-location-toggle-row {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  margin-top: 18px;
+  margin-bottom: 0;
+}
+
+.setup-container .wizard-single-location-toggle-row {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  margin-top: 18px;
+  margin-bottom: 0;
+}
+
+.setup-container .multi-target-location-toggle-row .form-help {
+  margin: 0;
+}
+
+.setup-container .wizard-single-location-toggle-row .form-help {
+  margin: 0;
+}
+
+.setup-container #multi-target-remote-ups-slot .form-group,
+.setup-container #multi-target-general-ups-slot .form-group {
+  margin-bottom: 0;
+}
+
+#remote-location-fields.wizard-detail-card {
+  margin-top: 10px;
+}
+
+.setup-container .multi-target-actions {
+  justify-content: flex-end;
+  gap: 12px;
+}
+
+.setup-container .wizard-extra-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 12px;
+  margin-left: auto;
+}
+
+.setup-container .wizard-manual-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.setup-container .wizard-manual-stack .wizard-detail-card .form-grid-2 {
+  align-items: start;
+}
+
+.setup-container .wizard-manual-stack .wizard-detail-card .form-grid-2 + .form-grid-2,
+.setup-container .wizard-manual-stack .wizard-detail-card .form-grid-2 + .form-group,
+.setup-container .wizard-manual-stack .wizard-detail-card .form-group + .form-grid-2 {
+  margin-top: 18px;
+}
+
+.setup-container .wizard-manual-stack .wizard-detail-card .form-group {
+  margin-bottom: 0;
+}
+
+.setup-container .wizard-usb-port-picker {
+  margin-top: 10px;
+}
+
+.setup-container .wizard-usb-port-picker .input-with-button {
+  align-items: center;
+  gap: 8px;
+}
+
+.setup-container .wizard-usb-port-picker .input-with-button select {
+  flex: 1 1 auto;
+}
+
+.setup-container .wizard-usb-port-picker .scan-button {
+  white-space: nowrap;
+}
+
+.setup-container .wizard-primary-manual-meta-grid {
+  grid-template-columns: minmax(0, 1fr) minmax(220px, 0.72fr);
+}
+
+@media (max-width: 900px) {
+  .wizard-detail-card {
+    padding: 14px;
+  }
+
+  .setup-container .wizard-single-remote-bottom-grid,
+  .setup-container .multi-target-overview-bottom-grid,
+  .setup-container .wizard-single-location-toggle-row,
+  .setup-container .multi-target-location-toggle-row {
+    grid-template-columns: 1fr;
+    display: grid;
+    gap: 14px;
+    align-items: start;
+  }
+
+  .setup-container .multi-target-location-toggle-row .form-help {
+    margin-top: 0;
+  }
+
+  .setup-container .wizard-extra-actions {
+    width: 100%;
+    justify-content: flex-end;
+    flex-wrap: wrap;
+  }
+
+  .setup-container .wizard-primary-manual-meta-grid {
+    grid-template-columns: 1fr;
+  }
+}

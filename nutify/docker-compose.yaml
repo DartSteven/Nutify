@@ -1,0 +1,56 @@
+services:
+  nut:
+    # Container image
+    image: dartsteven/nutify:amd64-latest        # Nutify image version
+    container_name: Nutify                       # Static container name for easy reference
+
+    # Privileges required for 
+    # direct UPS and USB device access
+    privileged: true                             # Broad hardware access for NUT and USB integration
+    cap_add:
+      - SYS_ADMIN                                # Extended system administration capabilities
+      - SYS_RAWIO                                # Raw hardware I/O access
+      - MKNOD                                    # Create special device files if needed
+
+    # USB device mapping
+    devices:
+      - /dev/bus/usb:/dev/bus/usb:rwm            # Map host USB bus into the container
+    device_cgroup_rules:
+      - 'c 189:* rwm'                            # Allow all USB character devices
+
+    # Persistent storage and host integration
+    volumes:
+      - ./Nutify/logs:/app/nutify/logs           # Application logs
+      - ./Nutify/instance:/app/nutify/instance   # Persistent app data and runtime files
+      - ./Nutify/ssl:/app/ssl                    # SSL certificates and private keys
+      - ./Nutify/etc/nut:/etc/nut                # NUT configuration directory
+      - /dev:/dev:rw                             # Full device tree access for hardware detection
+      - /run/udev:/run/udev:ro                   # Udev event access for hotplug monitoring
+
+    # Runtime environment
+    environment:
+      - SECRET_KEY=test1234567890                # Secret key used for sessions and encrypted values
+      - UDEV=1                                   # Enable udev-aware USB detection mode
+      - LOG=true                                 # Enable general application logging: true/false, default is false
+      - LOG_LEVEL=INFO                           # Accepted values currently are DEBUG, INFO, WARNING, ERROR, CRITICAL
+      - LOG_WERKZEUG=true                        # Enable Werkzeug HTTP/server logs: true or false, default is false
+      - ENABLE_LOG_STARTUP=Y                     # Valid values are Y or N, default is N, any other value is treated as N
+      - SSL_ENABLED=false                        # true or false, default is false
+     
+     # DNS resolvers
+    dns:
+      - 1.1.1.1                                  # Cloudflare DNS
+      - 8.8.8.8                                  # Google DNS
+    dns_opt:
+      - timeout:2                                # DNS timeout per query
+      - attempts:2                               # Retry count before failure
+
+    # Exposed ports
+    ports:
+      - 3493:3493                                # NUT daemon communication port
+      - 5050:5050                                # Nutify application port
+      - 443:443                                  # HTTPS secure web access
+
+    restart: always                              # Keep the service running across failures/reboots
+    user: root                                   # Root required for full device and NUT access
+

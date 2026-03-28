@@ -1,0 +1,6 @@
+# Network UPS Tools: upsd.conf
+# Configuration for upsd server in netserver mode
+
+# Listen on specific address for network access
+LISTEN {{LISTEN_ADDRESS}} {{LISTEN_PORT}}
+MAXCONN 16 
