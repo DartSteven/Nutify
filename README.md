@@ -173,7 +173,7 @@ Nutify aims for broad compatibility with UPS devices supported by Network UPS To
 
 **Is your UPS model working with Nutify but not listed here?** Please help us expand this list by sharing your experience in the
 
-[UPS Compatibility List discussion](https://github.com/DartSteven/Nutify/discussions/category/general)
+[UPS Compatibility List discussion](https://github.com/DartSteven/Nutify/discussions/16)
 
 Knowing which models work helps the entire community.
 
