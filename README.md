@@ -88,7 +88,7 @@ Nutify is available for multiple hardware platforms:
 services:
   nut:
     # Container image
-    image: dartsteven/nutify:amd64-latest        # Nutify image version
+    image: dartsteven/nutify:latest-amd64        # Nutify image version
     container_name: Nutify                       # Static container name for easy reference
 
     # Privileges required for 
