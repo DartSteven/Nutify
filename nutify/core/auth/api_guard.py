@@ -17,6 +17,7 @@ _PUBLIC_ALWAYS_PATHS = frozenset(
     {
         '/api/frontend/bootstrap',
         '/api/nut_event',
+        '/api/data/all',
     }
 )
 
