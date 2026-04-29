@@ -1396,15 +1396,18 @@ class EmailNotifier:
 
             logger.debug(f"Using mail config: ID={mail_config.id}, provider={mail_config.provider}, server={mail_config.smtp_server}")
             logger.debug(f"Mail config has password set: {'Yes' if mail_config.password else 'No'}")
-            
-            # Check if the mail config has a valid password
-            if not mail_config.password:
-                logger.error("Mail config has no password set")
-                return False, "Mail configuration has no password set"
-            
+
+            password_value = mail_config.password
+            if password_value is None:
+                if str(getattr(mail_config, 'username', '') or '').strip():
+                    logger.error("Mail config password is missing or cannot be decrypted for authenticated SMTP")
+                    return False, "Mail configuration password cannot be decrypted. Please update your mail settings with a new password."
+                logger.info("Mail config has no password set; continuing with no-auth SMTP")
+                password_value = ''
+
             # Try to access the password which will test decryption
             try:
-                password_value = mail_config.password
+                password_value = password_value or ''
                 logger.debug(f"Password access successful, length: {len(password_value) if password_value else 0}")
             except Exception as pwd_err:
                 logger.error(f"Failed to access password (likely encryption issue): {str(pwd_err)}")

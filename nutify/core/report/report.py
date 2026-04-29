@@ -2344,37 +2344,31 @@ class ReportManager:
                 if mail_config:
                     logger.info(f"Using mail configuration: SMTP={mail_config.smtp_server}:{mail_config.smtp_port}, Provider={mail_config.provider}")
                     
-                    # Check if the password can be accessed
-                    try:
-                        # First try to get the password directly - this will check if decryption works
-                        password = mail_config.password
-                        if password is None:
-                            logger.error("❌ Mail config password is None or cannot be decrypted")
+                    password = mail_config.password
+                    if password is None:
+                        if str(getattr(mail_config, 'username', '') or '').strip():
+                            logger.error("❌ Mail config password is None or cannot be decrypted for authenticated SMTP")
                             return {
                                 'status': 'error',
                                 'message': 'Mail configuration password cannot be decrypted. Please update your mail settings with a new password.'
                             }
-                        
-                        logger.debug(f"✅ Successfully accessed mail config password (length: {len(password)})")
-                        
-                        smtp_settings = {
-                            'smtp_server': mail_config.smtp_server,  # Use smtp_server key for consistency
-                            'smtp_port': mail_config.smtp_port,      # Use smtp_port key for consistency 
-                            'username': mail_config.username,
-                            'password': password,
-                            'from_email': mail_config.from_email,    # Use from_email property
-                            'provider': mail_config.provider,
-                            'tls': mail_config.tls,                  # Use tls key for consistency
-                            'tls_starttls': mail_config.tls_starttls, # Use tls_starttls key for consistency
-                            # Add a longer timeout for report emails which may be larger
-                            'timeout': 120  # 2 minute timeout for report sending
-                        }
-                    except Exception as pwd_err:
-                        logger.error(f"❌ Failed to access mail config password: {str(pwd_err)}")
-                        return {
-                            'status': 'error',
-                            'message': f'Failed to access mail configuration password: {str(pwd_err)}'
-                        }
+                        logger.info("Mail config has no password set; continuing with no-auth SMTP")
+                        password = ''
+
+                    logger.debug(f"✅ Successfully accessed mail config password (length: {len(password)})")
+
+                    smtp_settings = {
+                        'smtp_server': mail_config.smtp_server,  # Use smtp_server key for consistency
+                        'smtp_port': mail_config.smtp_port,      # Use smtp_port key for consistency 
+                        'username': mail_config.username,
+                        'password': password,
+                        'from_email': mail_config.from_email,    # Use from_email property
+                        'provider': mail_config.provider,
+                        'tls': mail_config.tls,                  # Use tls key for consistency
+                        'tls_starttls': mail_config.tls_starttls, # Use tls_starttls key for consistency
+                        # Add a longer timeout for report emails which may be larger
+                        'timeout': 120  # 2 minute timeout for report sending
+                    }
                 else:
                     logger.error("No mail configuration found")
                     return {
