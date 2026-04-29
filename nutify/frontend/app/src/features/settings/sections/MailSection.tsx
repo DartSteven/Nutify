@@ -4,8 +4,6 @@
  * Frontend module used by Nutify React UI flows and state management.
  */
 
-import { useMemo } from 'react'
-
 import { MailConfigPanel } from './mail/MailConfigPanel'
 import { MailNotificationsPanel } from './mail/MailNotificationsPanel'
 import { MailReportSchedulerPanel } from './mail/MailReportSchedulerPanel'
@@ -71,14 +69,10 @@ export function MailSection({
     defaults,
   } = useMailSectionController()
 
-  const validConfigs = useMemo(
-    () => configs.filter((config) => config.username.trim().length > 0),
-    [configs],
-  )
-  const showConfigDependentSections = validConfigs.length > 0 && (!showConfigPanel || !isFormVisible)
+  const showConfigDependentSections = configs.length > 0 && (!showConfigPanel || !isFormVisible)
   const showNotifications = showNotificationsPanel && showConfigDependentSections
   const showReports = showReportPanel && showConfigDependentSections
-  const showMissingProviderCard = (showNotificationsPanel || showReportPanel) && !showConfigPanel && validConfigs.length === 0
+  const showMissingProviderCard = (showNotificationsPanel || showReportPanel) && !showConfigPanel && configs.length === 0
 
   return (
     <>
@@ -90,7 +84,7 @@ export function MailSection({
           isTesting={formTestMutation.isPending}
           form={form}
           providers={providers}
-          configs={validConfigs}
+          configs={configs}
           status={status}
           showSummary={showConfigDependentSections}
           onShowAdd={handleShowAddForm}
@@ -125,7 +119,7 @@ export function MailSection({
       <div id="notification_dependent_sections" style={{ display: showConfigDependentSections ? 'block' : 'none' }}>
         {showNotifications ? (
           <MailNotificationsPanel
-            configs={validConfigs}
+            configs={configs}
             providers={providers}
             selections={selections}
             testBusyEventType={testBusyEventType}
@@ -138,7 +132,7 @@ export function MailSection({
 
         {showReports ? (
           <MailReportSchedulerPanel
-            configs={validConfigs}
+            configs={configs}
             providers={providers}
             reportSettings={reportSettings}
             reportStatus={reportStatus}

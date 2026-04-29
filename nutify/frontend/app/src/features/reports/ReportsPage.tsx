@@ -91,7 +91,7 @@ export function ReportsPage() {
       const row = item as Record<string, unknown>
       return {
         id: Number(row.id ?? 0),
-        label: String(row.username ?? `Config ${String(row.id ?? '')}`),
+        label: `${String(row.provider ?? 'Mail')} - ${String(row.to_email ?? row.username ?? `Config ${String(row.id ?? '')}`)}`,
       }
     })
   }, [mailPayload])

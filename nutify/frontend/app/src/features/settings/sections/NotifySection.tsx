@@ -45,14 +45,9 @@ export function NotifySection() {
     return 'active UPS target'
   }, [activeTargetId, targets])
 
-  const validMailConfigs = useMemo(
-    () => mail.configs.filter((config) => config.username.trim().length > 0),
-    [mail.configs],
-  )
-
   const mailOptions = useMemo<SelectOption[]>(
     () =>
-      validMailConfigs.map((config) => {
+      mail.configs.map((config) => {
         const providerLabel =
           mail.providers[config.provider]?.displayName
           || mail.providers[config.provider]?.note
@@ -64,7 +59,7 @@ export function NotifySection() {
           label: `${providerLabel} - ${destination}`,
         }
       }),
-    [mail.providers, validMailConfigs],
+    [mail.providers, mail.configs],
   )
 
   const ntfyOptions = ntfy.configOptions
