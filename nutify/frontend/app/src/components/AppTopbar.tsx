@@ -188,7 +188,9 @@ export function AppTopbar() {
     if (monitoringProfile !== 'multi') {
       setFleetOfflineCount(0)
       setFleetAttentionCount(0)
-      setFleetStatusByTarget({})
+      // Keep the same reference when already empty: a fresh {} here re-triggers
+      // this effect (fleetStatusByTarget is a dep) and loops the render cycle.
+      setFleetStatusByTarget((previous) => (Object.keys(previous).length === 0 ? previous : {}))
       return
     }
 
