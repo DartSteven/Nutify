@@ -381,7 +381,8 @@ def register_mail_api_routes(app):
         """Return notification settings."""
         try:
             NotificationSettings = db.ModelClasses.NotificationSettings
-            query, scoped_target_id = _notification_scoped_query(NotificationSettings)
+            requested_target_id = request.args.get('target_id', type=int)
+            query, scoped_target_id = _notification_scoped_query(NotificationSettings, requested_target_id)
             settings = query.order_by(NotificationSettings.event_type.asc()).all()
 
             if not settings:
@@ -418,7 +419,8 @@ def register_mail_api_routes(app):
             
             with data_lock:
                 NotificationSettings = db.ModelClasses.NotificationSettings
-                query, scoped_target_id = _notification_scoped_query(NotificationSettings)
+                requested_target_id = request.args.get('target_id', type=int)
+                query, scoped_target_id = _notification_scoped_query(NotificationSettings, requested_target_id)
                 for setting in data:
                     event_type = str(setting['event_type'])
                     nutify = query.filter(NotificationSettings.event_type == event_type).first()
@@ -473,9 +475,11 @@ def register_mail_api_routes(app):
             enabled = data['enabled']
             id_email = data.get('id_email')
             
+            requested_target_id = request.args.get('target_id', type=int)
+
             with data_lock:
                 NotificationSettings = db.ModelClasses.NotificationSettings
-                query, scoped_target_id = _notification_scoped_query(NotificationSettings)
+                query, scoped_target_id = _notification_scoped_query(NotificationSettings, requested_target_id)
                 nutify = query.filter(NotificationSettings.event_type == event_type).first()
                 
                 if nutify:
@@ -872,7 +876,8 @@ def register_mail_api_routes(app):
                 return jsonify({'success': False, 'error': 'Email configuration not found'}), 404
 
             NotificationSettings = db.ModelClasses.NotificationSettings
-            notification_query, scoped_target_id = _notification_scoped_query(NotificationSettings)
+            requested_target_id = request.args.get('target_id', type=int)
+            notification_query, scoped_target_id = _notification_scoped_query(NotificationSettings, requested_target_id)
             
             # Find all settings that use this email ID
             settings = notification_query.filter(NotificationSettings.id_email == email_id).all()
