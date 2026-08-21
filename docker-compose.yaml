@@ -36,6 +36,19 @@ services:
       - LOG_WERKZEUG=true                             # Enable Werkzeug HTTP/server logs: true or false, default is false
       - ENABLE_LOG_STARTUP=Y                          # Enable startup logs: valid values are Y or N, default is N, any other value is treated as N
       - SSL_ENABLED=false                             # true or false, default is false
+      # OIDC single sign-on (optional, additive to local login). Uncomment and fill in to enable.
+      # - OIDC_ENABLED=true                           # Enable OIDC SSO: 1/true/yes/on, default disabled
+      # - OIDC_ISSUER=https://sso.example.com/application/o/nutify/  # Provider issuer URL (discovery base)
+      # - OIDC_CLIENT_ID=nutify                       # Registered OIDC client id
+      # - OIDC_CLIENT_SECRET=change-me                # Registered OIDC client secret
+      # - OIDC_REDIRECT_URI=https://nutify.example.com/auth/oidc/callback  # Callback URL override (behind a proxy)
+      # - OIDC_SCOPES=openid profile email groups     # Requested scopes, default "openid profile email groups"
+      # - OIDC_USERNAME_CLAIM=preferred_username      # Username claim, default preferred_username (falls back to email/sub)
+      # - OIDC_GROUPS_CLAIM=groups                    # Claim holding group membership, default groups
+      # - OIDC_ADMIN_GROUP=nutify-admins              # Group(s) mapped to the administrator role (comma-separated)
+      # - OIDC_USER_GROUP=nutify-users                # Optional group(s) mapped to user; when set, only admin/user members may sign in
+      # - OIDC_PROVIDER_NAME=Authentik                # Display name used on the login button
+      # - OIDC_BUTTON_LABEL=Sign in with Authentik    # Explicit login button label override
      
      # DNS resolvers
     dns:

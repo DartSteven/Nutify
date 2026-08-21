@@ -12,6 +12,9 @@
 * **Reports And Notifications Scope Enhancements**
 * **Runtime And Service Hardening**
 * **Container And Build Pipeline Updates**
+* **OpenID Connect Single Sign-On (SSO)**: Optional, provider-agnostic OIDC login, additive to local authentication:
+  * Group-based role mapping via `OIDC_ADMIN_GROUP` and an optional `OIDC_USER_GROUP` that also gates who may sign in
+  * Optional `OIDC_AUTO_REDIRECT` to the provider, with a `/auth/login?local=1` escape hatch for the local administrator
 
 
 ## Version 0.1.7 (07/07/2025)

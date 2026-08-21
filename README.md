@@ -167,6 +167,46 @@ The setup wizard allows you to configure:
 - Final configuration preview and controlled restart to apply generated NUT files
 
 
+## Single Sign-On (OIDC)
+
+Nutify supports optional OpenID Connect (OIDC) single sign-on with any spec-compliant
+provider (Authentik, Keycloak, Authelia, Zitadel, ...). SSO is **additive**: local
+username/password login keeps working and the primary administrator always remains a
+fallback. Users returned by the provider are auto-provisioned locally, and their Nutify
+role is derived from a configurable group claim.
+
+Register a confidential client at your provider with the redirect URI
+`https://<your-nutify-host>/auth/oidc/callback`, then set the following environment
+variables (see `docker-compose.yaml` for the full list):
+
+| Variable | Required | Description |
+| --- | --- | --- |
+| `OIDC_ENABLED` | yes | Enable SSO (`true`). |
+| `OIDC_ISSUER` | yes | Provider issuer URL (discovery base). |
+| `OIDC_CLIENT_ID` | yes | Registered client id. |
+| `OIDC_CLIENT_SECRET` | yes | Registered client secret. |
+| `OIDC_REDIRECT_URI` | no | Callback URL override when running behind a reverse proxy. |
+| `OIDC_SCOPES` | no | Requested scopes, default `openid profile email groups`. |
+| `OIDC_USERNAME_CLAIM` | no | Username claim, default `preferred_username` (falls back to `email`/`sub`). |
+| `OIDC_GROUPS_CLAIM` | no | Claim holding group membership, default `groups`. |
+| `OIDC_ADMIN_GROUP` | no | Group(s) mapped to the `administrator` role (comma-separated). |
+| `OIDC_USER_GROUP` | no | Optional group(s) mapped to the `user` role (comma-separated). See group mapping below. |
+| `OIDC_PROVIDER_NAME` / `OIDC_BUTTON_LABEL` | no | Login button display text. |
+
+**Group mapping.** A user's Nutify role is derived from their group claim (admin always
+wins):
+
+- Member of an `OIDC_ADMIN_GROUP` group → `administrator`.
+- Otherwise, if `OIDC_USER_GROUP` is **empty**, every authenticated user becomes a `user`.
+- If `OIDC_USER_GROUP` is **set**, it also gates access: only members of the admin or user
+  group may sign in, and everyone else is rejected.
+
+So the simplest setup is to configure just `OIDC_ADMIN_GROUP` (admins are admins, everyone
+else is a user). Add `OIDC_USER_GROUP` when you want to restrict who may sign in at all.
+
+Once enabled, a **Sign in with SSO** button appears on the login page.
+
+
 ## Tested UPS Models
 
 Nutify aims for broad compatibility with UPS devices supported by Network UPS Tools (NUT). 
