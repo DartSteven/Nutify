@@ -6,6 +6,7 @@ from werkzeug.security import generate_password_hash, check_password_hash
 from typing import Optional, Dict, Any
 import pytz
 import json
+import secrets
 from flask import current_app
 
 # These will be set during initialization
@@ -64,8 +65,23 @@ class LoginAuth:
         if logger:
             logger.debug(f"🔐 Password hash set for username: {self.username}")
 
+    def set_unusable_password(self) -> None:
+        """Set a password hash that can never match (SSO-only accounts).
+
+        SSO users authenticate through the identity provider and must not be
+        able to log in locally, so we store a random, non-verifiable marker.
+        """
+        self.password_hash = f'!oidc:{secrets.token_urlsafe(32)}'
+        if logger:
+            logger.debug(f"🔐 Set unusable (SSO-only) password for username: {self.username}")
+
     def check_password(self, password: str) -> bool:
         """Check if provided password matches the stored hash"""
+        # SSO-only accounts carry a non-verifiable marker instead of a real hash.
+        if not self.password_hash or self.password_hash.startswith('!'):
+            if logger:
+                logger.debug(f"🔐 Password check for SSO-only username {self.username}: ❌ FAILED (no local password)")
+            return False
         result = check_password_hash(self.password_hash, password)
         if logger:
             logger.debug(f"🔐 Password check for username {self.username}: {'✅ SUCCESS' if result else '❌ FAILED'}")
@@ -267,6 +283,67 @@ class LoginAuth:
             db.session.rollback()
             if logger:
                 logger.error(f"🔐 Error creating user {username}: {str(e)}")
+            raise
+
+    @classmethod
+    def get_or_create_oidc_user(cls, username: str, role: str = 'user') -> 'LoginAuth':
+        """Provision (or update) a user authenticated via OIDC SSO.
+
+        New users are created without a usable local password. Existing users
+        are reactivated and their role is aligned with the group mapping on
+        every login. The primary administrator (id 1) is never modified, so
+        the local admin always stays a fallback.
+
+        Args:
+            username: Username reported by the identity provider.
+            role: Role derived from the provider group mapping.
+
+        Returns:
+            LoginAuth: The provisioned or updated user instance.
+        """
+        from core.db.ups import db
+
+        role = role if role in ('administrator', 'user') else 'user'
+        user = cls.query.filter_by(username=username).first()
+
+        if user:
+            # Never let SSO change the primary admin fallback account.
+            if user.id != 1:
+                if not user.is_active:
+                    user.is_active = True
+                if user.role != role:
+                    user.role = role
+                    user.is_admin = (role == 'administrator')
+                    user.set_permissions(user.get_default_permissions())
+                    user.set_options_tabs(user.get_default_options_tabs())
+                    if logger:
+                        logger.info(f"🔐 Updated SSO user {username} to role: {role}")
+            user.update_last_login()
+            try:
+                db.session.commit()
+                return user
+            except Exception as e:
+                db.session.rollback()
+                if logger:
+                    logger.error(f"🔐 Error updating SSO user {username}: {str(e)}")
+                raise
+
+        user = cls(username=username, role=role, is_admin=(role == 'administrator'), is_active=True)
+        user.set_unusable_password()
+        user.set_permissions(user.get_default_permissions())
+        user.set_options_tabs(user.get_default_options_tabs())
+        user.update_last_login()
+
+        try:
+            db.session.add(user)
+            db.session.commit()
+            if logger:
+                logger.info(f"🔐 Provisioned new SSO user: {username} with role: {role}")
+            return user
+        except Exception as e:
+            db.session.rollback()
+            if logger:
+                logger.error(f"🔐 Error provisioning SSO user {username}: {str(e)}")
             raise
 
     @classmethod

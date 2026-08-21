@@ -24,6 +24,12 @@ kaleido==0.2.1; python_version >= "3.13"
 # Security headers and CSP
 Flask-Talisman==1.1.0
 
+# OIDC / OpenID Connect single sign-on (generic provider support)
+# Pinned to 1.6.5: the last release that depends only on cryptography (>=1.7 pulls
+# joserfc>=1.6.0 which requires cryptography>=45.0.1 and would conflict with the
+# cryptography==44.0.2 pin above).
+Authlib==1.6.5
+
 # Socket UPS
 flask-socketio==5.5.1
 python-socketio==5.13.0

@@ -333,9 +333,11 @@ app.events_log = []
 try:
     from core.auth import setup_session_config
     from core.auth.security import init_auth_security
+    from core.auth.oidc import init_oidc_module
 
     setup_session_config(app)
     init_auth_security(app, logger)
+    init_oidc_module(app, logger)
 except Exception as auth_bootstrap_error:
     logger.warning(f"⚠️ Early auth security bootstrap failed: {auth_bootstrap_error}")
 
@@ -969,6 +971,7 @@ def init_app():
             try:
                 from core.auth import init_auth_module, setup_session_config
                 from core.auth.security import init_auth_security
+                from core.auth.oidc import init_oidc_module
                 
                 # Get LoginAuth model from database
                 if hasattr(db, 'ModelClasses') and hasattr(db.ModelClasses, 'LoginAuth'):
@@ -983,6 +986,7 @@ def init_app():
                     init_auth_module(login_model, logger)
                     setup_session_config(app)
                     init_auth_security(app, logger)
+                    init_oidc_module(app, logger)
                     logger.info("✅ Authentication system initialized successfully")
                 else:
                     logger.warning("⚠️ Authentication system initialization skipped - model not available")

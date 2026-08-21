@@ -8,6 +8,7 @@ initial setup, and admin panel.
 from flask import Blueprint, request, redirect, url_for, flash, jsonify, current_app
 from . import (
     login_user,
+    login_oidc_user,
     logout_user,
     is_authenticated,
     get_current_user,
@@ -17,6 +18,7 @@ from . import (
     require_admin
 )
 from .security import rate_limit
+from . import oidc
 from core.react_frontend import serve_react_index
 from datetime import datetime
 import pytz
@@ -65,6 +67,55 @@ def logout():
     logout_user()
     flash('You have been logged out', 'success')
     return redirect(url_for('auth.login'))
+
+@auth_bp.route('/oidc/login')
+@rate_limit('20 per minute')
+def oidc_login():
+    """Start the OIDC single sign-on flow by redirecting to the provider."""
+    if is_auth_disabled():
+        return redirect(url_for('index'))
+    if is_authenticated():
+        return redirect(url_for('index'))
+    if not oidc.is_oidc_enabled():
+        flash('Single sign-on is not enabled', 'error')
+        return redirect(url_for('auth.login'))
+
+    try:
+        return oidc.begin_login()
+    except oidc.OidcError as exc:
+        logger.error(f"🔐 OIDC login could not be started: {str(exc)}")
+        flash('Single sign-on is currently unavailable', 'error')
+        return redirect(url_for('auth.login'))
+
+@auth_bp.route('/oidc/callback')
+@rate_limit('20 per minute')
+def oidc_callback():
+    """Handle the OIDC provider redirect and establish the local session."""
+    if is_auth_disabled():
+        return redirect(url_for('index'))
+    if not oidc.is_oidc_enabled():
+        flash('Single sign-on is not enabled', 'error')
+        return redirect(url_for('auth.login'))
+
+    try:
+        identity = oidc.complete_login()
+    except oidc.OidcError as exc:
+        logger.warning(f"🔐 OIDC callback failed: {str(exc)}")
+        flash('Single sign-on failed. Please try again.', 'error')
+        return redirect(url_for('auth.login'))
+
+    user = login_oidc_user(identity['username'], identity['role'])
+    if not user:
+        flash('Could not provision your single sign-on account', 'error')
+        return redirect(url_for('auth.login'))
+
+    logger.info(f"🔐 Successful SSO login for user: {identity['username']}")
+    return redirect(url_for('index'))
+
+@auth_bp.route('/api/oidc')
+def api_oidc_config():
+    """Public endpoint exposing SSO availability for the login page."""
+    return jsonify(oidc.get_public_config())
 
 @auth_bp.route('/setup', methods=['GET', 'POST'])
 @rate_limit('5 per hour', methods=['POST'])

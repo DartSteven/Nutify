@@ -213,6 +213,40 @@ def login_user(username: str, password: str) -> bool:
         logger.warning(f"🔐 Failed login attempt for user: {username}")
     return False
 
+def login_oidc_user(username: str, role: str = 'user'):
+    """Provision and log in a user authenticated through OIDC SSO.
+
+    The user is created locally on first login (without a usable local
+    password) and its role is aligned with the provider group mapping on
+    every login. Local login and the primary admin fallback are unaffected.
+
+    Args:
+        username: Username reported by the identity provider.
+        role: Role derived from the provider group mapping.
+
+    Returns:
+        The provisioned LoginAuth user on success, otherwise None.
+    """
+    if not LoginAuth:
+        if logger:
+            logger.error("🔐 LoginAuth model not initialized")
+        return None
+
+    try:
+        user = LoginAuth.get_or_create_oidc_user(username, role)
+    except Exception as exc:
+        if logger:
+            logger.error(f"🔐 Failed to provision SSO user {username}: {str(exc)}")
+        return None
+
+    if flask_login_user is not None:
+        flask_login_user(user, remember=False)
+    _sync_session_from_user(user)
+
+    if logger:
+        logger.info(f"🔐 SSO user {username} logged in successfully")
+    return user
+
 def logout_user() -> None:
     """Logout the current user by clearing the session."""
     username = session.get('username', 'unknown')
