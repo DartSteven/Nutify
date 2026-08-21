@@ -1,0 +1,16 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.ruff_cache/
+
+# Frontend build artifacts / dependencies
+node_modules/
+dist/
+.vite/
+
+# Local scratch / virtualenvs (never committed)
+.tmp/
+.venv/
+venv/
