@@ -33,7 +33,28 @@ const authEnvelope = z.object({
   permissions: authStatusSchema.shape.permissions,
 })
 
+const oidcConfigSchema = z.object({
+  enabled: z.boolean(),
+  login_url: z.string(),
+  provider_name: z.string(),
+  button_label: z.string(),
+})
+
 export type AuthStatus = z.infer<typeof authStatusSchema>
+export type OidcConfig = z.infer<typeof oidcConfigSchema>
+
+export async function getOidcConfig(): Promise<OidcConfig> {
+  try {
+    return await requestJson('/auth/api/oidc', oidcConfigSchema)
+  } catch {
+    return {
+      enabled: false,
+      login_url: '/auth/oidc/login',
+      provider_name: 'SSO',
+      button_label: 'Sign in with SSO',
+    }
+  }
+}
 
 export async function getAuthStatus(): Promise<AuthStatus> {
   const payload = await requestJson('/auth/api/status', authEnvelope)

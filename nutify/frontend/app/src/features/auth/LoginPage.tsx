@@ -4,11 +4,12 @@
  * Frontend module used by Nutify React UI flows and state management.
  */
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import type { FormEvent } from 'react'
 import { useNavigate } from 'react-router-dom'
 
-import { login } from '../../lib/api/auth'
+import { getOidcConfig, login } from '../../lib/api/auth'
+import type { OidcConfig } from '../../lib/api/auth'
 
 const SETUP_LOGO_SRC = `${import.meta.env.BASE_URL}Nutify-Logo.png`
 
@@ -18,6 +19,19 @@ export function LoginPage() {
   const [password, setPassword] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [pending, setPending] = useState(false)
+  const [oidc, setOidc] = useState<OidcConfig | null>(null)
+
+  useEffect(() => {
+    let active = true
+    void getOidcConfig().then((config) => {
+      if (active) {
+        setOidc(config)
+      }
+    })
+    return () => {
+      active = false
+    }
+  }, [])
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
@@ -96,6 +110,14 @@ export function LoginPage() {
               </button>
             </div>
           </form>
+
+          {oidc?.enabled ? (
+            <div className="wizard-actions">
+              <a className="nav-btn prev-btn" href={oidc.login_url}>
+                <i className="fas fa-right-to-bracket" /> {oidc.button_label}
+              </a>
+            </div>
+          ) : null}
         </div>
       </div>
     </div>
