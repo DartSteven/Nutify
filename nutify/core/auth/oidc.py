@@ -27,6 +27,9 @@ Configuration is entirely environment driven:
                           authenticated user who is not an admin becomes a user.
     OIDC_PROVIDER_NAME    Display name used on the login button.
     OIDC_BUTTON_LABEL     Explicit login button label override.
+    OIDC_AUTO_REDIRECT    Send users straight to the provider, skipping the local
+                          login form. The primary admin can still reach the local
+                          form via ``/auth/login?local=1``.
 """
 
 from __future__ import annotations
@@ -114,6 +117,15 @@ def is_oidc_enabled() -> bool:
     return bool(OAuth) and _get_env_flag('OIDC_ENABLED') and is_oidc_configured()
 
 
+def is_auto_redirect() -> bool:
+    """Check whether the login page should jump straight to the provider.
+
+    Only meaningful when SSO is actually usable; the ``?local=1`` escape hatch
+    always lets the primary admin reach the local login form regardless.
+    """
+    return is_oidc_enabled() and _get_env_flag('OIDC_AUTO_REDIRECT')
+
+
 def get_public_config() -> Dict[str, Any]:
     """Return SSO details that are safe to expose to the frontend.
 
@@ -124,6 +136,7 @@ def get_public_config() -> Dict[str, Any]:
     button_label = _get_env('OIDC_BUTTON_LABEL') or f'Sign in with {provider_name}'
     return {
         'enabled': enabled,
+        'auto_redirect': enabled and is_auto_redirect(),
         'login_url': '/auth/oidc/login',
         'provider_name': provider_name,
         'button_label': button_label,

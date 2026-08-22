@@ -192,6 +192,7 @@ variables (see `docker-compose.yaml` for the full list):
 | `OIDC_ADMIN_GROUP` | no | Group(s) mapped to the `administrator` role (comma-separated). |
 | `OIDC_USER_GROUP` | no | Optional group(s) mapped to the `user` role (comma-separated). See group mapping below. |
 | `OIDC_PROVIDER_NAME` / `OIDC_BUTTON_LABEL` | no | Login button display text. |
+| `OIDC_AUTO_REDIRECT` | no | Skip the local form and send users straight to the provider (`true`). |
 
 **Group mapping.** A user's Nutify role is derived from their group claim (admin always
 wins):
@@ -205,6 +206,11 @@ So the simplest setup is to configure just `OIDC_ADMIN_GROUP` (admins are admins
 else is a user). Add `OIDC_USER_GROUP` when you want to restrict who may sign in at all.
 
 Once enabled, a **Sign in with SSO** button appears on the login page.
+
+With `OIDC_AUTO_REDIRECT=true` the login page forwards straight to the provider. The
+primary administrator (and anyone locked out by an unreachable provider) can still reach
+the local login form at **`/auth/login?local=1`** — this escape hatch is also linked from
+the redirect screen.
 
 
 ## Tested UPS Models

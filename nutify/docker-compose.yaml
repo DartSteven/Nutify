@@ -49,6 +49,7 @@ services:
       # - OIDC_USER_GROUP=nutify-users           # Optional group(s) mapped to user; when set, only admin/user members may sign in
       # - OIDC_PROVIDER_NAME=Authentik           # Display name used on the login button
       # - OIDC_BUTTON_LABEL=Sign in with Authentik  # Explicit login button label override
+      # - OIDC_AUTO_REDIRECT=true                # Skip the local form; local login stays reachable at /auth/login?local=1
      
      # DNS resolvers
     dns:

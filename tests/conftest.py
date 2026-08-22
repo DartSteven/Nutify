@@ -118,6 +118,7 @@ def oidc_env(monkeypatch):
         'OIDC_PROVIDER_NAME',
         'OIDC_BUTTON_LABEL',
         'OIDC_REDIRECT_URI',
+        'OIDC_AUTO_REDIRECT',
     ):
         monkeypatch.delenv(key, raising=False)
     return monkeypatch

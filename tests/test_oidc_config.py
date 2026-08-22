@@ -35,6 +35,24 @@ def test_public_config_custom_button_label(oidc, oidc_env):
     assert oidc.get_public_config()['button_label'] == 'Company Login'
 
 
+def test_auto_redirect_off_by_default(oidc, oidc_env):
+    assert oidc.is_auto_redirect() is False
+    assert oidc.get_public_config()['auto_redirect'] is False
+
+
+def test_auto_redirect_enabled_when_flag_set(oidc, oidc_env):
+    oidc_env.setenv('OIDC_AUTO_REDIRECT', 'true')
+    assert oidc.is_auto_redirect() is True
+    assert oidc.get_public_config()['auto_redirect'] is True
+
+
+def test_auto_redirect_requires_sso_enabled(oidc, oidc_env):
+    oidc_env.setenv('OIDC_AUTO_REDIRECT', 'true')
+    oidc_env.delenv('OIDC_ENABLED', raising=False)
+    assert oidc.is_auto_redirect() is False
+    assert oidc.get_public_config()['auto_redirect'] is False
+
+
 def test_scopes_always_include_openid(oidc, oidc_env):
     oidc_env.setenv('OIDC_SCOPES', 'profile email')
     assert oidc._get_scopes().split()[0] == 'openid'

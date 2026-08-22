@@ -27,6 +27,22 @@ from core.logger import web_logger as logger
 # Create blueprint
 auth_bp = Blueprint('auth', __name__, url_prefix='/auth')
 
+# Query-string flag that lets the primary admin reach the local login form even
+# when SSO auto-redirect is enabled, e.g. /auth/login?local=1
+LOCAL_LOGIN_PARAM = 'local'
+_TRUTHY_VALUES = {'1', 'true', 'yes', 'on'}
+
+
+def _wants_local_login() -> bool:
+    """Return True when the request explicitly asks for the local login form."""
+    return request.args.get(LOCAL_LOGIN_PARAM, '').strip().lower() in _TRUTHY_VALUES
+
+
+def _local_login_url() -> str:
+    """Local login URL with the SSO auto-redirect suppressed (loop-safe)."""
+    return url_for('auth.login', **{LOCAL_LOGIN_PARAM: 1})
+
+
 @auth_bp.route('/login', methods=['GET', 'POST'])
 @rate_limit('10 per minute', methods=['POST'])
 def login():
@@ -40,7 +56,13 @@ def login():
     # If already authenticated, redirect to main page
     if is_authenticated():
         return redirect(url_for('index'))
-    
+
+    # Optionally send users straight to the SSO provider, unless they explicitly
+    # requested the local login form (?local=1) — the documented escape hatch for
+    # the primary administrator and for when the provider is unreachable.
+    if request.method == 'GET' and oidc.is_auto_redirect() and not _wants_local_login():
+        return redirect(url_for('auth.oidc_login'))
+
     if request.method == 'POST':
         username = request.form.get('username', '').strip()
         password = request.form.get('password', '')
@@ -78,14 +100,14 @@ def oidc_login():
         return redirect(url_for('index'))
     if not oidc.is_oidc_enabled():
         flash('Single sign-on is not enabled', 'error')
-        return redirect(url_for('auth.login'))
+        return redirect(_local_login_url())
 
     try:
         return oidc.begin_login()
     except oidc.OidcError as exc:
         logger.error(f"🔐 OIDC login could not be started: {str(exc)}")
         flash('Single sign-on is currently unavailable', 'error')
-        return redirect(url_for('auth.login'))
+        return redirect(_local_login_url())
 
 @auth_bp.route('/oidc/callback')
 @rate_limit('20 per minute')
@@ -95,19 +117,19 @@ def oidc_callback():
         return redirect(url_for('index'))
     if not oidc.is_oidc_enabled():
         flash('Single sign-on is not enabled', 'error')
-        return redirect(url_for('auth.login'))
+        return redirect(_local_login_url())
 
     try:
         identity = oidc.complete_login()
     except oidc.OidcError as exc:
         logger.warning(f"🔐 OIDC callback failed: {str(exc)}")
         flash('Single sign-on failed. Please try again.', 'error')
-        return redirect(url_for('auth.login'))
+        return redirect(_local_login_url())
 
     user = login_oidc_user(identity['username'], identity['role'])
     if not user:
         flash('Could not provision your single sign-on account', 'error')
-        return redirect(url_for('auth.login'))
+        return redirect(_local_login_url())
 
     logger.info(f"🔐 Successful SSO login for user: {identity['username']}")
     return redirect(url_for('index'))

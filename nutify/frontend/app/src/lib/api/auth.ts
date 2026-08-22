@@ -35,6 +35,7 @@ const authEnvelope = z.object({
 
 const oidcConfigSchema = z.object({
   enabled: z.boolean(),
+  auto_redirect: z.boolean().optional().default(false),
   login_url: z.string(),
   provider_name: z.string(),
   button_label: z.string(),
@@ -49,6 +50,7 @@ export async function getOidcConfig(): Promise<OidcConfig> {
   } catch {
     return {
       enabled: false,
+      auto_redirect: false,
       login_url: '/auth/oidc/login',
       provider_name: 'SSO',
       button_label: 'Sign in with SSO',
