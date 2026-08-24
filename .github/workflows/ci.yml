@@ -39,7 +39,7 @@ jobs:
         working-directory: nutify/frontend/app
     steps:
       - uses: actions/checkout@v6
-      - uses: actions/setup-node@v6
+      - uses: actions/setup-node@v7
         with:
           node-version: "22"
           cache: npm
