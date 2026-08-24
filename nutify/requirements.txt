@@ -54,7 +54,7 @@ dnspython==2.7.0
 psutil==7.0.0
 
 # Retry functionality for report generation
-tenacity==8.2.3
+tenacity==9.1.4
 
 # Graphic notification cards
 Pillow==10.4.0
