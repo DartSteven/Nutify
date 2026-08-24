@@ -51,7 +51,7 @@ Jinja2==3.1.6
 dnspython==2.7.0
 
 # System monitoring
-psutil==7.0.0
+psutil==7.2.2
 
 # Retry functionality for report generation
 tenacity==8.2.3
