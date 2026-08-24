@@ -119,7 +119,21 @@ export function MailReportSchedulerPanel(props: MailReportSchedulerPanelProps) {
 
           <div className="options_form_group">
             <label className="options_form_label">Report Period</label>
-            <div className="options_date_inputs">
+            <div className="options_input_group">
+              <select
+                id="report_period_type"
+                className="options_input"
+                value={reportSettings.periodType}
+                onChange={(event) => onReportFieldChange('periodType', event.target.value as ReportSettingsState['periodType'])}
+              >
+                {PERIOD_TYPE_OPTIONS.map((option) => (
+                  <option key={`report-period-option-${option.value || 'empty'}`} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="options_date_inputs" style={{ display: reportSettings.periodType === 'range' ? 'flex' : 'none' }}>
               <div className="options_input_group">
                 <label htmlFor="report_from_date">From</label>
                 <input

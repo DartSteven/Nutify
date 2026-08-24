@@ -71,10 +71,7 @@ export function MailSection({
     defaults,
   } = useMailSectionController()
 
-  const validConfigs = useMemo(
-    () => configs.filter((config) => config.username.trim().length > 0),
-    [configs],
-  )
+  const validConfigs = useMemo(() => configs, [configs])
   const showConfigDependentSections = validConfigs.length > 0 && (!showConfigPanel || !isFormVisible)
   const showNotifications = showNotificationsPanel && showConfigDependentSections
   const showReports = showReportPanel && showConfigDependentSections

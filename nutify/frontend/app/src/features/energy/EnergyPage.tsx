@@ -314,8 +314,8 @@ export function EnergyPage() {
     [trendSeries],
   )
   const hasTrendChartData = useMemo(
-    () => trendSeries.some((point) => Number.isFinite(point.y) && Number(point.y) > 0),
-    [trendSeries],
+    () => !isRealtimeMode || trendSeries.some((point) => Number.isFinite(point.x) && Number.isFinite(point.y)),
+    [isRealtimeMode, trendSeries],
   )
 
   const trendModeForOptions = period.mode === 'range' ? 'range' : period.mode === 'day' ? 'day' : 'today'

@@ -2,6 +2,7 @@
 
 from .cards import build_notification_card, normalize_event_code
 from .graphics import render_notification_card_png
+from .metrics import fill_missing_target_metrics, normalize_notification_metrics
 from .renderers import (
     DEFAULT_RENDER_MODE,
     build_mail_template_data_from_card,
@@ -18,6 +19,8 @@ __all__ = [
     'build_notification_card',
     'normalize_event_code',
     'render_notification_card_png',
+    'fill_missing_target_metrics',
+    'normalize_notification_metrics',
     'DEFAULT_RENDER_MODE',
     'build_mail_template_data_from_card',
     'build_webhook_event_data_from_card',

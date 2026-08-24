@@ -1,20 +1,17 @@
 """Polling helpers for Multi-NUT targets."""
 
 from __future__ import annotations
-
 from dataclasses import dataclass, field
 from datetime import datetime
 from threading import Lock
 from typing import Dict, List, Optional, Tuple
-
 from core.db.ups import db
 from core.db.ups.cache import websocket
 from core.logger import system_logger as logger
 from flask import current_app
-
 from .connection import normalize_metrics, run_upsc_command
 from .notifications import dispatch_target_event_notifications
-from .power_events import collect_poll_failure_events, collect_power_transition_events, register_poll_success, reset_target_power_state
+from .power_events import collect_poll_failure_events, collect_poll_success_events, collect_power_transition_events
 from .storage import (
     coerce_int,
     enabled_targets_count,
@@ -28,11 +25,9 @@ from .storage import (
     utc_now,
 )
 
-
 @dataclass
 class _TargetBufferState:
     """In-memory per-target buffer used for minute-level DB aggregation."""
-
     minute_bucket: Optional[datetime] = None
     samples: List[Dict[str, object]] = field(default_factory=list)
     latest_raw_payload: Dict[str, object] = field(default_factory=dict)
@@ -253,13 +248,17 @@ def _emit_lifecycle_event(*, target, policy, event_type: str, metrics: Optional[
     )
 
 
-def _persist_error_state(target, policy, error_message: str, timestamp_utc: datetime, had_previous_error: bool, target_context: str) -> str:
-    """Persist failure metadata and first offline snapshot for a new outage."""
-    offline_status = 'ERROR'
-    if had_previous_error:
-        mark_poll_error(target.id, error_message, timestamp_utc=timestamp_utc)
-        offline_status = 'NOCOMM'
-    else:
+def _persist_error_state(
+    target,
+    policy,
+    error_message: str,
+    timestamp_utc: datetime,
+    confirmed_outage: bool,
+    target_context: str,
+) -> str:
+    """Persist diagnostics immediately and an offline snapshot after debounce."""
+    offline_status = 'NOCOMM' if confirmed_outage else 'ERROR'
+    if confirmed_outage:
         try:
             offline_status = record_target_error_snapshot(
                 target=target,
@@ -273,6 +272,8 @@ def _persist_error_state(target, policy, error_message: str, timestamp_utc: date
             logger.error(
                 f"Multi-NUT failed to persist error snapshot for {target_context}: {snapshot_exc}"
             )
+    else:
+        mark_poll_error(target.id, error_message, timestamp_utc=timestamp_utc)
 
     target.last_test_status = False
     target.last_test_error = str(error_message)[:1000]
@@ -316,8 +317,6 @@ def poll_multi_targets_once(timeout: int = 10) -> Dict[str, object]:
             f"id={target.id} name={target.name} "
             f"target={target.ups_name}@{target.host}:{target.port}"
         )
-        had_previous_error = bool(getattr(policy, 'last_error', None))
-
         if not should_poll_target(policy, now_utc):
             skipped += 1
             logger.debug(f"Multi-NUT poll skipped for {target_context}")
@@ -344,12 +343,13 @@ def poll_multi_targets_once(timeout: int = 10) -> Dict[str, object]:
 
         if not success:
             failed += 1
+            outage_events = collect_poll_failure_events(target.id)
             offline_status = _persist_error_state(
                 target=target,
                 policy=policy,
                 error_message=str(error),
                 timestamp_utc=now_utc,
-                had_previous_error=had_previous_error,
+                confirmed_outage='COMMBAD' in outage_events,
                 target_context=target_context,
             )
 
@@ -362,16 +362,7 @@ def poll_multi_targets_once(timeout: int = 10) -> Dict[str, object]:
                 timestamp_iso=now_utc.isoformat(),
             )
 
-            if not had_previous_error:
-                reset_target_power_state(target.id)
-                _emit_lifecycle_event(
-                    target=target,
-                    policy=policy,
-                    event_type='COMMBAD',
-                    metrics={},
-                    reason=error,
-                )
-            for outage_event in collect_poll_failure_events(target.id, had_previous_error):
+            for outage_event in outage_events:
                 _emit_lifecycle_event(
                     target=target,
                     policy=policy,
@@ -402,7 +393,6 @@ def poll_multi_targets_once(timeout: int = 10) -> Dict[str, object]:
             )
             _mark_poll_success(policy, now_utc)
 
-            polled += 1
             target.last_test_status = True
             target.last_test_error = None
             db.session.commit()
@@ -416,14 +406,13 @@ def poll_multi_targets_once(timeout: int = 10) -> Dict[str, object]:
 
             logger.debug(f"Multi-NUT polling success for {target_context}")
 
-            if had_previous_error:
+            for recovery_event in collect_poll_success_events(target.id):
                 _emit_lifecycle_event(
                     target=target,
                     policy=policy,
-                    event_type='COMMOK',
+                    event_type=recovery_event,
                     metrics=metrics,
                 )
-            register_poll_success(target.id)
             for power_event in collect_power_transition_events(target.id, metrics):
                 _emit_lifecycle_event(
                     target=target,
@@ -432,6 +421,25 @@ def poll_multi_targets_once(timeout: int = 10) -> Dict[str, object]:
                     metrics=metrics,
                 )
 
+            try:
+                from core.scripts.script_actions import maybe_execute_script_actions
+
+                maybe_execute_script_actions(
+                    active_db=db,
+                    event_type='',
+                    metrics=metrics,
+                    payload={'target_id': target.id},
+                    target_id=target.id,
+                )
+            except Exception as script_exc:
+                logger.error(
+                    "Script action poll evaluation failed for target_id=%s: %s",
+                    target.id,
+                    script_exc,
+                    exc_info=True,
+                )
+
+            polled += 1
             events.append(
                 {
                     'target_id': target.id,
@@ -442,20 +450,18 @@ def poll_multi_targets_once(timeout: int = 10) -> Dict[str, object]:
         except Exception as exc:
             failed += 1
             db.session.rollback()
-
-            offline_status = _persist_error_state(
-                target=target,
-                policy=policy,
-                error_message=str(exc),
+            mark_poll_error(
+                target.id,
+                f"Snapshot persistence failed: {exc}",
                 timestamp_utc=now_utc,
-                had_previous_error=had_previous_error,
-                target_context=target_context,
             )
-
+            target.last_test_status = True
+            target.last_test_error = None
+            db.session.commit()
             _emit_target_update(
                 target_id=target.id,
                 target_name=target.name,
-                metrics=_offline_metrics(offline_status),
+                metrics=metrics,
                 timestamp_iso=now_utc.isoformat(),
             )
             logger.error(f"Multi-NUT snapshot buffering failed for {target_context}: {exc}")
@@ -464,7 +470,7 @@ def poll_multi_targets_once(timeout: int = 10) -> Dict[str, object]:
                     'target_id': target.id,
                     'target_name': target.name,
                     'status': 'error',
-                    'ups_status': offline_status,
+                    'ups_status': metrics.get('ups_status'),
                     'error': str(exc),
                 }
             )

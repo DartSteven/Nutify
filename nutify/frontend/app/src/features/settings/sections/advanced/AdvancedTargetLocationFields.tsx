@@ -167,7 +167,7 @@ export function AdvancedTargetLocationFields({
         return
       }
 
-      if (!response.ok || !Boolean(data.success)) {
+      if (!response.ok || !data.success) {
         setSuggestions([])
         setSuggestionsHint(String(data.message || 'Location suggestions unavailable right now.'))
         return

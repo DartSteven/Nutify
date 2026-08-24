@@ -1,0 +1,16 @@
+.git
+.env
+.env.*
+!.env.example
+
+Nutify/
+tests/
+nutify/instance/
+nutify/logs/
+nutify/frontend/app/node_modules/
+nutify/frontend/app/dist/
+nutify/config/settings.txt
+
+**/__pycache__/
+**/*.pyc
+**/*.pyo

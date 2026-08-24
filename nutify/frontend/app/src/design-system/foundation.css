@@ -1,0 +1,178 @@
+:root[data-ui-skin="next"] {
+  --nx-font-display: "DIN Alternate", "Avenir Next Condensed", sans-serif;
+  --nx-font-body: "Avenir Next", "Segoe UI", sans-serif;
+  --nx-canvas: #edf4f5;
+  --nx-canvas-deep: #dfeaec;
+  --nx-surface: rgba(255, 255, 255, 0.82);
+  --nx-surface-solid: #f8fbfc;
+  --nx-surface-raised: #ffffff;
+  --nx-panel: rgba(239, 247, 248, 0.82);
+  --nx-ink: #142b3d;
+  --nx-muted: #657b8d;
+  --nx-faint: #8da0ad;
+  --nx-line: rgba(41, 76, 101, 0.17);
+  --nx-line-strong: rgba(38, 103, 124, 0.28);
+  --nx-teal: #149f96;
+  --nx-teal-bright: #21b9a8;
+  --nx-blue: #1d83bd;
+  --nx-cyan: #41d5ca;
+  --nx-success: #26ad86;
+  --nx-warning: #dc9b32;
+  --nx-danger: #db5c64;
+  --nx-hero-ink: #153247;
+  --nx-hero-muted: #587185;
+  --nx-hero-kicker: #077a73;
+  --nx-hero-line: rgba(35, 111, 130, 0.2);
+  --nx-hero-ring: rgba(23, 147, 139, 0.2);
+  --nx-hero-ring-soft: rgba(23, 147, 139, 0.055);
+  --nx-hero-pill-bg: rgba(255, 255, 255, 0.68);
+  --nx-hero-bg:
+    radial-gradient(circle at 82% 12%, rgba(34, 181, 168, 0.16), transparent 30%),
+    linear-gradient(128deg, rgba(255, 255, 255, 0.96) 0%, #edf7f7 58%, #dcefee 100%);
+  --nx-shadow: 0 16px 45px rgba(29, 56, 72, 0.08);
+  --nx-shadow-raised: 0 24px 65px rgba(25, 55, 73, 0.15);
+  --nx-radius-sm: 10px;
+  --nx-radius-md: 15px;
+  --nx-radius-lg: 20px;
+  --nx-control-height: 44px;
+
+  --bg-primary: var(--nx-canvas);
+  --bg-secondary: var(--nx-surface-solid);
+  --bg-tertiary: var(--nx-panel);
+  --bg-card: var(--nx-surface);
+  --card-bg: var(--nx-surface);
+  --text-primary: var(--nx-ink);
+  --text-secondary: var(--nx-muted);
+  --border-color: var(--nx-line);
+  --primary-color: var(--nx-teal);
+  --accent-color: var(--nx-teal-bright);
+  --hover-bg: rgba(31, 175, 163, 0.08);
+  --card-shadow: var(--nx-shadow);
+  --shadow-md: var(--nx-shadow-raised);
+}
+
+:root[data-ui-skin="next"][data-theme="dark"] {
+  --nx-canvas: #07111b;
+  --nx-canvas-deep: #050c14;
+  --nx-surface: rgba(15, 27, 40, 0.88);
+  --nx-surface-solid: #0f1a27;
+  --nx-surface-raised: #142131;
+  --nx-panel: rgba(21, 35, 51, 0.76);
+  --nx-ink: #e9f2f7;
+  --nx-muted: #94a8ba;
+  --nx-faint: #6d8295;
+  --nx-line: rgba(137, 174, 201, 0.19);
+  --nx-line-strong: rgba(90, 205, 194, 0.29);
+  --nx-teal: #48cdbd;
+  --nx-teal-bright: #64dfd1;
+  --nx-blue: #2c94d0;
+  --nx-cyan: #6be5d8;
+  --nx-success: #53d4ac;
+  --nx-warning: #e8ad4c;
+  --nx-danger: #f2767f;
+  --nx-hero-ink: #f2f8fb;
+  --nx-hero-muted: #b9ccda;
+  --nx-hero-kicker: #70dfd2;
+  --nx-hero-line: rgba(122, 183, 201, 0.2);
+  --nx-hero-ring: rgba(98, 219, 207, 0.2);
+  --nx-hero-ring-soft: rgba(98, 219, 207, 0.035);
+  --nx-hero-pill-bg: rgba(5, 12, 20, 0.46);
+  --nx-hero-bg:
+    radial-gradient(circle at 82% 12%, rgba(32, 184, 166, 0.25), transparent 29%),
+    linear-gradient(128deg, #101d2b 0%, #132c3c 58%, #0d3a43 100%);
+  --nx-shadow: 0 18px 55px rgba(0, 0, 0, 0.24);
+  --nx-shadow-raised: 0 26px 75px rgba(0, 0, 0, 0.36);
+
+  --bg-primary: var(--nx-canvas);
+  --bg-secondary: var(--nx-surface-solid);
+  --bg-tertiary: var(--nx-panel);
+  --bg-card: var(--nx-surface);
+  --card-bg: var(--nx-surface);
+  --text-primary: var(--nx-ink);
+  --text-secondary: var(--nx-muted);
+  --border-color: var(--nx-line);
+  --primary-color: var(--nx-teal);
+  --accent-color: var(--nx-teal-bright);
+  --hover-bg: rgba(72, 205, 189, 0.09);
+  --card-shadow: var(--nx-shadow);
+  --shadow-md: var(--nx-shadow-raised);
+  color-scheme: dark;
+}
+
+html[data-ui-skin="next"] {
+  background: var(--nx-canvas-deep);
+}
+
+:root[data-ui-skin="next"] body {
+  color: var(--nx-ink);
+  font-family: var(--nx-font-body);
+  background:
+    radial-gradient(circle at 82% -10%, rgba(31, 177, 165, 0.13), transparent 31rem),
+    radial-gradient(circle at 12% 88%, rgba(29, 131, 189, 0.08), transparent 38rem),
+    var(--nx-canvas);
+  background-attachment: fixed;
+}
+
+:root[data-ui-skin="next"] body::before {
+  position: fixed;
+  z-index: -1;
+  inset: 0;
+  content: "";
+  pointer-events: none;
+  opacity: 0.34;
+  background-image:
+    linear-gradient(rgba(88, 137, 158, 0.045) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(88, 137, 158, 0.045) 1px, transparent 1px);
+  background-size: 34px 34px;
+  mask-image: linear-gradient(to bottom, black, transparent 78%);
+}
+
+:root[data-ui-skin="next"] button,
+:root[data-ui-skin="next"] input,
+:root[data-ui-skin="next"] select,
+:root[data-ui-skin="next"] textarea {
+  font: inherit;
+}
+
+:root[data-ui-skin="next"] button,
+:root[data-ui-skin="next"] a,
+:root[data-ui-skin="next"] input,
+:root[data-ui-skin="next"] select,
+:root[data-ui-skin="next"] textarea,
+:root[data-ui-skin="next"] summary {
+  -webkit-tap-highlight-color: transparent;
+}
+
+:root[data-ui-skin="next"] :focus-visible {
+  outline: 2px solid var(--nx-cyan);
+  outline-offset: 3px;
+}
+
+:root[data-ui-skin="next"] ::selection {
+  color: #061411;
+  background: var(--nx-cyan);
+}
+
+:root[data-ui-skin="next"] * {
+  scrollbar-color: color-mix(in srgb, var(--nx-teal) 55%, transparent) transparent;
+  scrollbar-width: thin;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  :root[data-ui-skin="next"] .main-content > section,
+  :root[data-ui-skin="next"] .main-content > div.page,
+  :root[data-ui-skin="next"] .main-content > .events_container {
+    animation: nx-enter 420ms cubic-bezier(0.2, 0.75, 0.25, 1) both;
+  }
+}
+
+@keyframes nx-enter {
+  from {
+    opacity: 0;
+    transform: translateY(9px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}

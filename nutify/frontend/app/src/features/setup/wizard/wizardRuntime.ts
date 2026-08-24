@@ -8,10 +8,10 @@ import { registerPrimaryAutoDetectLayoutRuntime } from './runtime/primaryAutoDet
 import { registerPrimaryManualUsbRuntime } from './runtime/primaryManualUsbRuntime'
 import { registerPrimaryModesRuntime } from './runtime/primaryModesRuntime'
 import { registerPrimaryTargetRuntime } from './runtime/primaryTargetRuntime'
+import { registerSnmpRuntime } from './runtime/snmpRuntime'
 import { registerSingleNetclientLocationRuntime } from './runtime/singleNetclientLocationRuntime'
 import { registerMultiTargetLocationRuntime } from './runtime/multiTargetLocationRuntime'
 import { registerMultiTargetCoreRuntime } from './runtime/multiTargetCoreRuntime'
-import { registerMultiTargetSequentialTestRuntime } from './runtime/multiTargetSequentialTestRuntime'
 import { registerMultiTargetFormRuntime } from './runtime/multiTargetFormRuntime'
 import { registerMultiTargetUsbRuntime } from './runtime/multiTargetUsbRuntime'
 import { registerMultiTargetListRuntime } from './runtime/multiTargetListRuntime'
@@ -64,11 +64,11 @@ function registerWizardModules(ctx) {
   registerPrimaryAutoDetectLayoutRuntime(ctx)
   registerPrimaryManualUsbRuntime(ctx)
   registerPrimaryModesRuntime(ctx)
+  registerSnmpRuntime(ctx)
   registerPrimaryTargetRuntime(ctx)
   registerSingleNetclientLocationRuntime(ctx)
   registerMultiTargetLocationRuntime(ctx)
   registerMultiTargetCoreRuntime(ctx)
-  registerMultiTargetSequentialTestRuntime(ctx)
   registerMultiTargetFormRuntime(ctx)
   registerMultiTargetUsbRuntime(ctx)
   registerMultiTargetListRuntime(ctx)

@@ -1,0 +1,76 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  backend:
+    runs-on: ubuntu-24.04
+    strategy:
+      matrix:
+        python-version: ["3.11", "3.13"]
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: pip
+          cache-dependency-path: nutify/requirements.txt
+      - run: python -m pip install --upgrade pip
+      - run: python -m pip install -r nutify/requirements.txt
+      - run: python -m compileall -q nutify
+      - name: Import runtime dependencies
+        run: python -c "import authlib, eventlet, flask, joserfc, kaleido, numpy, pandas, sqlalchemy"
+
+  frontend:
+    runs-on: ubuntu-24.04
+    defaults:
+      run:
+        working-directory: nutify/frontend/app
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: nutify/frontend/app/package-lock.json
+      - run: npm ci
+      - run: npm audit --audit-level=high
+      - run: npm run lint
+      - run: npm run build
+
+  deployment-files:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v6
+      - name: Validate shell syntax
+        run: |
+          bash -n src/docker-entrypoint
+          find src -type f -name '*.sh' -print0 | xargs -0 -n1 bash -n
+      - name: Validate Compose profiles
+        env:
+          SECRET_KEY: 0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
+          NUTIFY_DEVICE: /dev/null
+          NUTIFY_DEVICE_GID: "20"
+          OIDC_CONFIG_SOURCE: environment
+          OIDC_ENABLED: "true"
+          OIDC_ISSUER: https://sso.example.com/application/o/nutify/
+          OIDC_CLIENT_ID: nutify
+          OIDC_CLIENT_SECRET: validation-only-secret
+          OIDC_REDIRECT_URI: https://nutify.example.com/auth/oidc/callback
+          OIDC_ADMIN_GROUP: nutify-admins
+          OIDC_USER_GROUP: nutify-users
+        run: |
+          docker compose -f docker-compose.yaml config --quiet
+          docker compose -f docker-compose.yaml -f docker-compose.oidc.yaml config --quiet
+          docker compose -f docker-compose.yaml -f docker-compose.hardware.yaml config --quiet

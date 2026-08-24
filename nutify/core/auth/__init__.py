@@ -183,6 +183,18 @@ def is_admin() -> bool:
             logger.error(f"🔐 Error checking admin role: {str(exc)}")
         return False
 
+def login_authenticated_user(user, auth_method: str = 'local'):
+    """Establish a fresh session for an already authenticated active user."""
+    if not user or not getattr(user, 'is_active', False):
+        return None
+    session.clear()
+    if flask_login_user is not None:
+        flask_login_user(user, remember=False, fresh=True)
+    _sync_session_from_user(user)
+    session['auth_method'] = str(auth_method or 'local')
+    return user
+
+
 def login_user(username: str, password: str) -> bool:
     """
     Authenticate and login a user.
@@ -201,9 +213,7 @@ def login_user(username: str, password: str) -> bool:
     
     user = LoginAuth.authenticate_user(username, password)
     if user:
-        if flask_login_user is not None:
-            flask_login_user(user, remember=False)
-        _sync_session_from_user(user)
+        login_authenticated_user(user, auth_method='local')
         
         if logger:
             logger.info(f"🔐 User {username} logged in successfully")

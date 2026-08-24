@@ -1,0 +1,14 @@
+.env
+!.env.example
+
+.DS_Store
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+**/__pycache__/
+*.py[cod]
+
+nutify/frontend/app/node_modules/
+nutify/frontend/app/dist/
+nutify/instance/
+nutify/logs/

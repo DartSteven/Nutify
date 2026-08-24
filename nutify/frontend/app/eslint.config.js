@@ -22,6 +22,10 @@ export default defineConfig([
       reactRefresh.configs.vite,
     ],
     rules: {
+      '@typescript-eslint/no-unused-vars': [
+        'error',
+        { argsIgnorePattern: '^_', caughtErrorsIgnorePattern: '^_' },
+      ],
       'react-hooks/purity': 'off',
       'react-hooks/set-state-in-effect': 'off',
       'react-refresh/only-export-components': 'off',
@@ -29,6 +33,15 @@ export default defineConfig([
     languageOptions: {
       ecmaVersion: 2020,
       globals: globals.browser,
+    },
+  },
+  {
+    files: [
+      'src/features/setup/wizard/runtime/**/*.ts',
+      'src/features/setup/wizard/wizardRuntime.ts',
+    ],
+    rules: {
+      '@typescript-eslint/ban-ts-comment': 'off',
     },
   },
 ])

@@ -36,8 +36,8 @@ UPSMON_CMD = upsmon
 UPSDRVCTL_CMD = upsdrvctl
 
 # NUT Full Commands with options
-NUT_START_DRIVER_CMD = /usr/sbin/upsdrvctl -u root start
-NUT_START_SERVER_CMD = /usr/sbin/upsd -u root
+NUT_START_DRIVER_CMD = /usr/sbin/upsdrvctl -u nut start
+NUT_START_SERVER_CMD = /usr/sbin/upsd -u nut
 NUT_START_MONITOR_CMD = /usr/sbin/upsmon
 NUT_STOP_DRIVER_CMD = /usr/sbin/upsdrvctl stop
 NUT_STOP_SERVER_CMD = /usr/sbin/upsd -c stop

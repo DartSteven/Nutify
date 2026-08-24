@@ -26,6 +26,7 @@ import base64
 from core.notifications import (
     build_notification_card,
     build_webhook_event_data_from_card,
+    fill_missing_target_metrics,
     normalize_event_code,
     normalize_render_mode,
     render_notification_card_png,
@@ -253,6 +254,21 @@ class WebhookNotifier:
         notification_card = event_data.get('notification_card')
         if isinstance(notification_card, dict):
             result['notification_card'] = notification_card
+
+        message_text = str(event_data.get('message_text') or event_data.get('message') or '').strip()
+        if not message_text and isinstance(notification_card, dict):
+            message_text = str(notification_card.get('message') or notification_card.get('subtitle') or '').strip()
+        title_text = str(event_data.get('title') or '').strip()
+        if not title_text and isinstance(notification_card, dict):
+            title_text = str(notification_card.get('title') or '').strip()
+        if not title_text:
+            title_text = f"UPS Event: {event_type}"
+        if not message_text:
+            message_text = self._get_event_description(event_type)
+
+        result.setdefault('title', title_text)
+        result.setdefault('message', message_text)
+        result.setdefault('priority', 5 if event_type in ['ONBATT', 'LOWBATT', 'COMMBAD', 'NOCOMM', 'SHUTDOWN', 'REPLBATT', 'NOBATT'] else 2)
             
         return result
     
@@ -681,10 +697,18 @@ def test_notification(config, event_type=None):
         
         # Use provided event type or default to TEST
         test_event_type = event_type or 'TEST'
+
+        target_id = config_copy.get('target_id')
+        try:
+            target_id = int(target_id) if target_id is not None else None
+        except (TypeError, ValueError):
+            target_id = None
+
+        scoped_ups_info = _build_target_scoped_ups_info(target_id)
         
         # Prepare test data
         test_data = {
-            'ups_info': {
+            'ups_info': scoped_ups_info or {
                 'ups_model': 'Test UPS',
                 'device_serial': 'TEST123456',
                 'battery_charge': '100',
@@ -692,6 +716,18 @@ def test_notification(config, event_type=None):
                 'input_voltage': '230'
             }
         }
+
+        if event_type:
+            test_data['notification_card'] = build_notification_card(
+                normalized_event,
+                server_name=server_name,
+                target_id=target_id,
+                target_name=str(config_copy.get('display_name') or config_copy.get('name') or 'Webhook'),
+                target_label='notify-test',
+                metrics=fill_missing_target_metrics(target_id),
+                reason='manual test',
+                timestamp=now,
+            )
         
         # Prepare test payload with timezone-aware timestamp and server_name
         test_payload = {

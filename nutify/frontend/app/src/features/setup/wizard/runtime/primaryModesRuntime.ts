@@ -1,5 +1,7 @@
 // @ts-nocheck
 
+import { updateDriverEndpointPresentation } from './driverEndpointPresentation'
+
 export function registerPrimaryModesRuntime(ctx) {
   const { elements, state } = ctx
 
@@ -86,6 +88,20 @@ export function registerPrimaryModesRuntime(ctx) {
     if (elements.netserverSnmpVersion && netserverUsesSnmp && !String(elements.netserverSnmpVersion.value || '').trim()) {
       elements.netserverSnmpVersion.value = 'v1'
     }
+    updateDriverEndpointPresentation(
+      elements.standaloneDriverSelect?.value,
+      document.getElementById('ups_port'),
+      document.getElementById('ups_port_label'),
+      document.getElementById('ups_port_help'),
+    )
+    updateDriverEndpointPresentation(
+      elements.netserverDriverSelect?.value,
+      document.getElementById('server_ups_port'),
+      document.getElementById('server_ups_port_label'),
+      document.getElementById('server_ups_port_help'),
+    )
+    ctx.actions.updateSnmpAuthUi('')
+    ctx.actions.updateSnmpAuthUi('server_')
   }
 
   ctx.actions.updateMultiTargetSnmpUi = function updateMultiTargetSnmpUi() {
@@ -104,6 +120,13 @@ export function registerPrimaryModesRuntime(ctx) {
         elements.multiTargetSnmpVersion.value = 'v1'
       }
     }
+    updateDriverEndpointPresentation(
+      elements.multiTargetLocalDriver?.value,
+      elements.multiTargetLocalPort,
+      document.getElementById('multi_target_local_port_label'),
+      document.getElementById('multi_target_local_port_help'),
+    )
+    ctx.actions.updateSnmpAuthUi('multi_target_')
   }
 
   ctx.actions.setupSnmpFieldHandlers = function setupSnmpFieldHandlers() {

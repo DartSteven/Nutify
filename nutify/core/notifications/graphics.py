@@ -37,16 +37,13 @@ def _format_runtime_minutes(value: Any) -> str:
     return f"{max(0, int(parsed / 60))} min" if parsed is not None else "N/A"
 
 
-def _format_input_output_metric(input_value: Any, output_value: Any) -> Tuple[str, str]:
+def _format_input_output_metrics(input_value: Any, output_value: Any) -> List[Tuple[str, str]]:
     input_text = _format_voltage(input_value)
     output_text = _format_voltage(output_value)
-    if input_text != "N/A" and output_text != "N/A":
-        return ("Input / Output", f"{input_text} / {output_text}")
-    if output_text != "N/A":
-        return ("Output", output_text)
-    if input_text != "N/A":
-        return ("Input", input_text)
-    return ("Input / Output", "N/A")
+    return [
+        ("Input", input_text),
+        ("Output", output_text),
+    ]
 
 
 def _format_battery_voltage_temp_metric(voltage_value: Any, temp_value: Any) -> Tuple[str, str]:
@@ -124,7 +121,6 @@ def _line_wrap(draw, text: str, font, max_width: int) -> List[str]:
 
 def _metric_rows(card: Dict[str, Any]) -> List[Tuple[str, str]]:
     metrics = card.get("metrics") or {}
-    io_label, io_text = _format_input_output_metric(metrics.get("inputVoltage"), metrics.get("outputVoltage"))
     battery_label, battery_text = _format_battery_voltage_temp_metric(
         metrics.get("batteryVoltage"),
         metrics.get("temperatureC"),
@@ -134,7 +130,7 @@ def _metric_rows(card: Dict[str, Any]) -> List[Tuple[str, str]]:
         ("Runtime", _format_runtime_minutes(metrics.get("runtimeSeconds"))),
         ("Load", _format_percent(metrics.get("loadPercent"))),
         ("Real Power", _format_watts(metrics.get("realPowerWatts"))),
-        (io_label, io_text),
+        *_format_input_output_metrics(metrics.get("inputVoltage"), metrics.get("outputVoltage")),
         (battery_label, battery_text),
     ]
 
@@ -285,7 +281,7 @@ def _draw_sparkline(draw, bounds, values: List[float], label: str, line_color, f
     draw.line(points, fill=line_color, width=3)
 
 
-def render_notification_card_png(card: Dict[str, Any], width: int = 1200, height: int = 760) -> bytes:
+def render_notification_card_png(card: Dict[str, Any], width: int = 1200, height: int = 920) -> bytes:
     """Render a canonical notification card to PNG bytes."""
     try:
         from PIL import Image, ImageDraw, ImageFont
@@ -293,7 +289,7 @@ def render_notification_card_png(card: Dict[str, Any], width: int = 1200, height
         raise RuntimeError("Pillow is required for graphic notification rendering") from exc
 
     canvas_width = max(780, min(int(width or 1200), 2200))
-    canvas_height = max(520, min(int(height or 760), 1600))
+    canvas_height = max(720, min(int(height or 920), 1800))
     image = Image.new("RGB", (canvas_width, canvas_height), (9, 14, 29))
     draw = ImageDraw.Draw(image)
 

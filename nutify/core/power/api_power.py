@@ -23,6 +23,7 @@ from .power import (
     get_power_stats,
     get_power_history,
 )
+from .outlet_groups import build_outlet_group_payload
 
 logger.info("💪 Initializing power API routes")
 
@@ -294,6 +295,23 @@ def register_api_routes(app):
                 history = get_power_history(period, from_time, to_time, selected_day)
             
         return jsonify({'success': True, 'data': history})
+
+    @app.route('/api/power/outlet-groups')
+    def api_power_outlet_groups():
+        """Return discovered outlet-group real-power metrics and history."""
+        target_id = resolve_target_id()
+        if not target_id:
+            return jsonify({'success': True, 'data': {'groups': [], 'has_data': False}})
+
+        payload = build_outlet_group_payload(
+            target_id=int(target_id),
+            period=request.args.get('period', 'day'),
+            from_time=request.args.get('from_time'),
+            to_time=request.args.get('to_time'),
+            selected_date=request.args.get('selected_date'),
+            selected_day=request.args.get('selected_day'),
+        )
+        return jsonify({'success': True, 'data': payload})
 
     @app.route('/api/power/has_hour_data')
     def api_power_has_hour_data():

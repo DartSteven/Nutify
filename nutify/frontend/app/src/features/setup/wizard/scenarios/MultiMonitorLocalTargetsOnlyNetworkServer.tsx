@@ -4,6 +4,8 @@
  * Frontend module used by Nutify React UI flows and state management.
  */
 
+import { SnmpFields } from '../components/SnmpFields'
+
 export function MultiMonitorLocalTargetsOnlyNetworkServer() {
   return (
     <div id="multi-targets-section" className="mode-config hidden">
@@ -28,9 +30,9 @@ export function MultiMonitorLocalTargetsOnlyNetworkServer() {
               <div className="form-help">NUT driver used on this host for the local UPS.</div>
             </div>
             <div className="form-group">
-              <label htmlFor="multi_target_local_port">Local Driver Port/Device:</label>
+              <label id="multi_target_local_port_label" htmlFor="multi_target_local_port">Port/Device:</label>
               <input type="text" id="multi_target_local_port" defaultValue="auto" placeholder="auto or device/IP" />
-              <div className="form-help">Usually `auto` for USB, or a device path or IP for network drivers.</div>
+              <div id="multi_target_local_port_help" className="form-help">Use `auto` for USB, or enter the local device path required by the selected driver.</div>
             </div>
           </div>
 
@@ -64,22 +66,7 @@ export function MultiMonitorLocalTargetsOnlyNetworkServer() {
             </div>
           </div>
 
-          <div id="multi-target-snmp-fields" className="form-grid-2 hidden">
-            <div className="form-group">
-              <label htmlFor="multi_target_snmp_community">SNMP Community:</label>
-              <input type="text" id="multi_target_snmp_community" defaultValue="public" placeholder="public" />
-              <div className="form-help">Required when the selected local driver uses SNMP.</div>
-            </div>
-            <div className="form-group">
-              <label htmlFor="multi_target_snmp_version">SNMP Version:</label>
-              <select id="multi_target_snmp_version" defaultValue="v1">
-                <option value="v1">v1</option>
-                <option value="v2c">v2c</option>
-                <option value="v3">v3</option>
-              </select>
-              <div className="form-help">Choose the SNMP version supported by the UPS.</div>
-            </div>
-          </div>
+          <SnmpFields containerId="multi-target-snmp-fields" idPrefix="multi_target_" />
 
           <div className="alert alert-info">
             <i className="fas fa-info-circle" /> Local targets are added to this host NUT server and exposed to remote clients after setup.

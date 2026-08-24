@@ -7,6 +7,8 @@ from datetime import datetime
 from html import escape
 from pathlib import Path
 from typing import Any, Dict, Optional
+
+from .cards import normalize_event_code
 from .support_links import support_footer_html, support_footer_markdown, support_footer_text
 
 VALID_RENDER_MODES = {'graphic', 'text'}
@@ -305,12 +307,12 @@ def render_mail_subject_from_card(card: Dict[str, Any], fallback_event_type: str
     context = card.get('context') or {}
     server_name = str(context.get('serverName') or '').strip()
     target_name = str(context.get('targetName') or '').strip()
-    title = str(card.get('title') or fallback_event_type or 'UPS EVENT').strip()
+    event_type = normalize_event_code(card.get('type') or fallback_event_type)
 
     scope = target_name or server_name
     if scope:
-        return f"{scope} - {title}"
-    return title
+        return f"{scope} UPS Event: {event_type}"
+    return f"UPS Event: {event_type}"
 
 
 def render_mail_html_from_card(card: Dict[str, Any]) -> str:

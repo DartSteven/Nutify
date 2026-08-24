@@ -58,6 +58,14 @@ def _localize_day_end(day_value, timezone_obj):
     return timezone_obj.localize(datetime.combine(day_value, dt_time.max))
 
 
+def _rolling_year_start(day_value):
+    try:
+        anniversary = day_value.replace(year=day_value.year - 1)
+    except ValueError:
+        anniversary = day_value.replace(year=day_value.year - 1, day=28)
+    return anniversary + timedelta(days=1)
+
+
 def parse_schedule_range_dates(
     from_date_str: str,
     to_date_str: str,
@@ -94,24 +102,16 @@ def calculate_report_period(period_type: str, target_id: Optional[int] = None, f
         return _localize_day_start(yesterday, timezone_obj), _localize_day_end(yesterday, timezone_obj)
 
     if normalized_period == "last_week":
-        days_since_monday = now.weekday()
-        this_week_start = (now - timedelta(days=days_since_monday)).replace(
-            hour=0,
-            minute=0,
-            second=0,
-            microsecond=0,
-        )
-        last_week_start = this_week_start - timedelta(days=7)
-        last_week_end = this_week_start - timedelta(microseconds=1)
-        return last_week_start, last_week_end
+        start_day = now.date() - timedelta(days=6)
+        return _localize_day_start(start_day, timezone_obj), _localize_day_end(now.date(), timezone_obj)
 
     if normalized_period == "last_month":
-        first_day_this_month = timezone_obj.localize(datetime(now.year, now.month, 1))
-        last_day_last_month = first_day_this_month - timedelta(microseconds=1)
-        first_day_last_month = timezone_obj.localize(
-            datetime(last_day_last_month.year, last_day_last_month.month, 1)
-        )
-        return first_day_last_month, last_day_last_month
+        start_day = now.date() - timedelta(days=29)
+        return _localize_day_start(start_day, timezone_obj), _localize_day_end(now.date(), timezone_obj)
+
+    if normalized_period == "last_year":
+        start_day = _rolling_year_start(now.date())
+        return _localize_day_start(start_day, timezone_obj), _localize_day_end(now.date(), timezone_obj)
 
     if normalized_period == "weekly":
         return (now - timedelta(days=7)).replace(hour=0, minute=0, second=0, microsecond=0), now

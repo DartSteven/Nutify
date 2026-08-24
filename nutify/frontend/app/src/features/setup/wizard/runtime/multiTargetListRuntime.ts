@@ -102,8 +102,7 @@ export function registerMultiTargetListRuntime(ctx) {
         if (elements.multiTargetLocalDesc) elements.multiTargetLocalDesc.value = target.local_description || ''
         if (elements.multiTargetTimezone) elements.multiTargetTimezone.value = ctx.actions.normalizeSetupTimezone(target.timezone, 'UTC')
         if (elements.multiTargetCurrency) elements.multiTargetCurrency.value = ctx.actions.normalizeSetupCurrency(target.currency, 'EUR')
-        if (elements.multiTargetSnmpCommunity) elements.multiTargetSnmpCommunity.value = target.snmp_community || 'public'
-        if (elements.multiTargetSnmpVersion) elements.multiTargetSnmpVersion.value = target.snmp_version || 'v1'
+        ctx.actions.writeSnmpSettings('multi_target_', target)
         if (elements.multiTargetPolling) elements.multiTargetPolling.value = String(target.polling_interval)
         if (elements.multiTargetDbStrategy) elements.multiTargetDbStrategy.value = 'shared'
         if (elements.multiTargetShard) elements.multiTargetShard.value = 'month'

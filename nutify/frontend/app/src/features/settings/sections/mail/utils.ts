@@ -49,6 +49,7 @@ export function normalizeMailConfigs(payload: unknown): MailConfigRow[] {
         smtp_server: String(entry.smtp_server ?? ''),
         smtp_port: String(entry.smtp_port ?? ''),
         username: String(entry.username ?? ''),
+        from_email: String(entry.from_email ?? ''),
         enabled: Boolean(entry.enabled),
         provider: String(entry.provider ?? ''),
         render_mode: String(entry.render_mode ?? 'graphic'),
@@ -190,8 +191,15 @@ export function formatScheduleDays(days: number[]): string {
 
 export function formatSchedulePeriod(schedule: ReportScheduleRow): string {
   const periodType = schedule.period_type || 'daily'
-  if (periodType === 'daily') {
-    return 'Daily'
+  const periodLabelMap: Record<string, string> = {
+    daily: 'Daily',
+    yesterday: 'Yesterday',
+    last_week: 'Last 7 Days',
+    last_month: 'Last 30 Days',
+    last_year: 'Last 12 Months',
+  }
+  if (periodLabelMap[periodType]) {
+    return periodLabelMap[periodType]
   }
   if (periodType === 'range') {
     const from = schedule.from_date ? new Date(schedule.from_date).toLocaleDateString() : 'N/A'
@@ -207,6 +215,7 @@ export function createDefaultReportSettings(): ReportSettingsState {
   yesterday.setDate(today.getDate() - 1)
   return {
     selectedReports: [],
+    periodType: 'yesterday',
     fromDate: yesterday.toISOString().split('T')[0],
     toDate: today.toISOString().split('T')[0],
     mailConfigId: '',
@@ -223,7 +232,8 @@ export function fillScheduleForm(schedule: ReportScheduleRow): ScheduleFormState
       schedule.period_type === 'range' ||
       schedule.period_type === 'yesterday' ||
       schedule.period_type === 'last_week' ||
-      schedule.period_type === 'last_month'
+      schedule.period_type === 'last_month' ||
+      schedule.period_type === 'last_year'
         ? schedule.period_type
         : 'yesterday',
     rangeFromDate: schedule.from_date ? schedule.from_date.split('T')[0] : '',

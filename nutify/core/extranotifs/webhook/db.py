@@ -72,6 +72,15 @@ def _set_default_global(model, current_config_id):
     query.filter(model.id != int(current_config_id)).update({'is_default': False}, synchronize_session=False)
 
 
+def _config_to_dict(config, include_secrets=False):
+    """Serialize a webhook config, exposing secrets only to runtime callers."""
+    data = config.to_dict()
+    if include_secrets:
+        data['auth_password'] = str(config.auth_password or '')
+        data['auth_token'] = str(config.auth_token or '')
+    return data
+
+
 def _resolve_notification_row(notification_model, event_type, target_id=None, create_missing=False):
     from app import db
 
@@ -113,7 +122,7 @@ def get_configs_from_db(target_id=None):
         return []
 
 
-def get_config_by_id(config_id, target_id=None):
+def get_config_by_id(config_id, target_id=None, include_secrets=False):
     """Return one global webhook configuration."""
     try:
         model = get_webhook_model()
@@ -122,13 +131,13 @@ def get_config_by_id(config_id, target_id=None):
             return None
 
         config = _global_query(model).filter(model.id == int(config_id)).first()
-        return config.to_dict() if config else None
+        return _config_to_dict(config, include_secrets=include_secrets) if config else None
     except Exception as exc:
         logger.error(f"Error fetching webhook configuration {config_id}: {exc}")
         return None
 
 
-def get_default_config(target_id=None):
+def get_default_config(target_id=None, include_secrets=False):
     """Return default global webhook configuration."""
     try:
         model = get_webhook_model()
@@ -137,7 +146,7 @@ def get_default_config(target_id=None):
             return None
 
         config = _global_query(model).filter_by(is_default=True).first() or _global_query(model).order_by(model.id.asc()).first()
-        return config.to_dict() if config else None
+        return _config_to_dict(config, include_secrets=include_secrets) if config else None
     except Exception as exc:
         logger.error(f"Error fetching default webhook configuration: {exc}")
         return None
@@ -355,11 +364,27 @@ def get_notification_settings(target_id=None):
             return {}
 
         query, _ = _notification_scoped_query(notification_model, target_id)
+        scoped_rows = query.all()
         rows = {
             str(row.event_type or '').upper(): row
-            for row in query.all()
+            for row in scoped_rows
             if str(row.event_type or '').strip()
         }
+        # Compatibility fallback: old databases may have target-scoped rows even in single profile.
+        if not rows and target_id is not None and hasattr(notification_model, 'target_id'):
+            try:
+                legacy_rows = (
+                    notification_model.query
+                    .filter(notification_model.target_id == int(target_id))
+                    .all()
+                )
+                rows = {
+                    str(row.event_type or '').upper(): row
+                    for row in legacy_rows
+                    if str(row.event_type or '').strip()
+                }
+            except Exception:
+                pass
 
         settings = {}
         for event_type in _EVENT_TYPES:
@@ -390,15 +415,13 @@ def get_enabled_configs_for_event(event_type, target_id=None):
         event_setting = settings.get(event_key, {})
         config_id = event_setting.get('config_id')
 
-        if not event_setting.get('enabled') or not config_id:
-            return []
-
-        config = _global_query(model).filter(model.id == int(config_id)).first()
-        if not config:
-            logger.warning(f"Webhook config id={config_id} not found for event {event_key}")
-            return []
-
-        return [config.to_dict()]
+        if event_setting.get('enabled') and config_id:
+            config = _global_query(model).filter(model.id == int(config_id)).first()
+            if config:
+                return [_config_to_dict(config, include_secrets=True)]
+            else:
+                logger.warning(f"Webhook config id={config_id} not found for event {event_key}")
+        return []
     except Exception as exc:
         logger.error(f"Error getting webhook configs for event {event_type}: {exc}")
         return []

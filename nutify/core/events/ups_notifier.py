@@ -39,13 +39,16 @@ import pytz
 import sqlite3
 from sqlalchemy import text, inspect
 import json
-from core.multi_nut.target_scope import apply_target_scope, resolve_settings_target_id
-from core.multi_nut.storage_snapshots import extract_metric, get_latest_target_snapshot, infer_error_status
 
 # Add the application directory to sys.path to allow imports
 APP_DIR = str(Path(__file__).resolve().parent.parent.parent)
 if APP_DIR not in sys.path:
     sys.path.append(APP_DIR)
+
+from core.multi_nut.target_scope import apply_target_scope, resolve_settings_target_id
+from core.multi_nut.storage_snapshots import extract_metric, get_latest_target_snapshot, infer_error_status
+from core.events.time_utils import utc_now
+from core.events.event_sanity import describe_inconsistent_power_event, is_recent_snapshot
 
 # Get SECRET_KEY from environment before any imports
 SECRET_KEY = os.environ.get('SECRET_KEY')
@@ -82,7 +85,7 @@ if not SECRET_KEY:
     logger.error("ERROR: SECRET_KEY not found in environment. This is required for encryption.")
     sys.exit(1)
 else:
-    logger.info(f"Using SECRET_KEY from environment (first 5 chars: {SECRET_KEY[:5]}...)")
+    logger.info("Using SECRET_KEY from environment")
 
 # Database path
 DB_PATH = os.path.join(APP_DIR, "instance", "nutify.db.sqlite")
@@ -144,7 +147,7 @@ try:
 
     # Set SECRET_KEY directly in app.config
     app.config['SECRET_KEY'] = SECRET_KEY
-    logger.info(f"Set SECRET_KEY in app.config from environment (first 5 chars: {SECRET_KEY[:5]}...)")
+    logger.info("Set SECRET_KEY in app.config from environment")
 
     # Set global CACHE_TIMEZONE from app module
     app.CACHE_TIMEZONE = CACHE_TIMEZONE
@@ -604,6 +607,15 @@ def get_enabled_notifications(event_type, target_id=None):
             )
 
         notifications = notifications_query.all()
+        if not notifications and target_id is not None and hasattr(NotificationSettingsModel, 'target_id'):
+            try:
+                notifications = NotificationSettingsModel.query.filter_by(
+                    enabled=True,
+                    event_type=event_type.upper(),
+                    target_id=int(target_id),
+                ).all()
+            except Exception:
+                notifications = []
         
         # Convert notifications to list of dictionaries with type and config
         result = []
@@ -667,6 +679,7 @@ def _load_target_snapshot_data(target_id):
             'device_mfr',
             'battery_type',
             'battery_charge',
+            'battery_charge_low',
             'battery_runtime',
             'battery_runtime_low',
             'battery_voltage',
@@ -705,6 +718,30 @@ def _load_target_snapshot_data(target_id):
     except Exception as exc:
         log_message(f"WARNING: Failed to load target snapshot data for target_id={target_id}: {exc}", True)
         return None, None, {}
+
+
+def _load_power_event_sanity_metrics(target_id):
+    """Return current metrics for direct upsmon power-event validation."""
+    target, snapshot, metrics = _load_target_snapshot_data(target_id)
+    if target is not None:
+        try:
+            from core.multi_nut.connection import normalize_metrics, run_upsc_command
+
+            success, raw_payload, error = run_upsc_command(
+                ups_name=getattr(target, 'ups_name', ''),
+                host=getattr(target, 'host', ''),
+                port=getattr(target, 'port', 3493),
+                command_path=getattr(target, 'command_path', None),
+                timeout=4,
+                target_id=int(target_id),
+            )
+            if success:
+                return normalize_metrics(raw_payload, target_id=int(target_id)), True
+            log_message(f"WARNING: Live upsc validation failed for target_id={target_id}: {error}", True)
+        except Exception as exc:
+            log_message(f"WARNING: Live upsc validation error for target_id={target_id}: {exc}", True)
+    return metrics, is_recent_snapshot(snapshot, max_age_seconds=120)
+
 
 def get_ups_info(ups_name, target_id=None):
     """
@@ -994,8 +1031,8 @@ def store_event_in_database(ups_name, event_type, target_id=None):
         bool: True if successful, False otherwise
     """
     try:
-        # Use UTC time for storing in database
-        now = datetime.datetime.utcnow().replace(microsecond=0).replace(tzinfo=datetime.timezone.utc)
+        # Store event timestamps as aware UTC to avoid DST/local offset drift.
+        now = utc_now().replace(microsecond=0)
         
         # Close any previous events for this UPS
         close_previous_events(ups_name, now, target_id=target_id)
@@ -1862,8 +1899,8 @@ def get_detailed_ups_info(ups_name, target_id=None):
                                         try:
                                             timestamp_utc = datetime.datetime.strptime(timestamp_utc, '%Y-%m-%d %H:%M:%S.%f')
                                         except ValueError:
-                                            # If all parsing fails, use current time
-                                            timestamp_utc = datetime.datetime.utcnow()
+                                            # If all parsing fails, use current UTC time
+                                            timestamp_utc = utc_now()
 
                                 # Ensure timestamp is timezone aware (UTC)
                                 if timestamp_utc.tzinfo is None:
@@ -2107,12 +2144,27 @@ def format_ups_details(ups_info):
 def process_ups_event(ups_name, event_type):
     """Process a UPS event and send notifications"""
     try:
-        target_id = resolve_target_id_for_ups_name(ups_name)
+        metrics_target_id = resolve_target_id_for_ups_name(ups_name)
+        target_id = resolve_settings_target_id(metrics_target_id)
         normalized_event = normalize_event_code(event_type)
+        if metrics_target_id is not None:
+            metrics, metrics_are_current = _load_power_event_sanity_metrics(metrics_target_id)
+            if metrics_are_current:
+                skip_reason = describe_inconsistent_power_event(normalized_event, metrics)
+                if skip_reason:
+                    logger.warning(
+                        "Skipping inconsistent UPS event ups=%s event=%s target_id=%s reason=%s",
+                        ups_name,
+                        normalized_event,
+                        metrics_target_id,
+                        skip_reason,
+                    )
+                    return True
+
         unified_card = build_unified_notification_card_for_event(
             ups_name,
             event_type,
-            target_id=target_id,
+            target_id=metrics_target_id,
         )
 
         # Store event in database first

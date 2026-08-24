@@ -35,15 +35,12 @@ main() {
     
     # Detect USB devices
     detect_usb_devices
+
+    # Grant the unprivileged scanner and NUT processes host USB group access.
+    configure_usb_runtime_groups
     
     # Fix permissions for USB devices
     fix_usb_permissions
-    
-    # Display available environment variables
-    if [ "$ENABLE_LOG_STARTUP" = "Y" ]; then
-        startup_log "Available environment variables:"
-        env
-    fi
     
     # Verify configuration files
     if ! check_config_files; then
@@ -62,6 +59,10 @@ main() {
     chmod 755 "$APP_DIR/core/events/ups_notifier.py"
     chown nut:nut "$APP_DIR/core/events/ups_notifier.py"
     
+    # Prepare bind-mounted writable paths before dropping web privileges.
+    ensure_database_permissions
+    ensure_log_permissions
+
     # Start the web application
     if ! start_web_app; then
         if [ "$ENABLE_LOG_STARTUP" = "Y" ]; then
@@ -76,12 +77,6 @@ main() {
     if [ "$ENABLE_LOG_STARTUP" = "Y" ]; then
         show_system_info
     fi
-    
-    # Call the function to ensure database permissions
-    ensure_database_permissions
-    
-    # Ensure all Python log files have correct permissions
-    ensure_log_permissions
     
     if [ "$ENABLE_LOG_STARTUP" = "Y" ]; then
         startup_log "NUT services successfully started"

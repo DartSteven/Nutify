@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import base64
 import re
+from email.charset import Charset, QP
 from email.mime.image import MIMEImage
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
@@ -15,6 +16,10 @@ _DATA_URI_RE = re.compile(
     r"""src=(?P<quote>["'])data:image/(?P<subtype>[a-zA-Z0-9.+-]+);base64,(?P<data>[^"']+)(?P=quote)""",
     re.IGNORECASE | re.DOTALL,
 )
+
+_UTF8_QP = Charset("utf-8")
+_UTF8_QP.header_encoding = QP
+_UTF8_QP.body_encoding = QP
 
 
 def _extract_inline_images(html_content: str) -> Tuple[str, List[Tuple[str, str, bytes]]]:
@@ -64,7 +69,6 @@ def build_html_email_message(
         message["From"] = safe_from
     message["Subject"] = safe_subject
     message["Date"] = formatdate(localtime=True)
-    message["MIME-Version"] = "1.0"
 
     alternative = MIMEMultipart("alternative")
     message.attach(alternative)
@@ -74,8 +78,8 @@ def build_html_email_message(
         "Your client cannot render HTML content.\n"
         "Open this message with an HTML-capable client."
     )
-    alternative.attach(MIMEText(plain_fallback, "plain", "utf-8"))
-    alternative.attach(MIMEText(html_rendered, "html", "utf-8"))
+    alternative.attach(MIMEText(plain_fallback, "plain", _UTF8_QP))
+    alternative.attach(MIMEText(html_rendered, "html", _UTF8_QP))
 
     for content_id, subtype, image_bytes in attachments:
         mime_image = MIMEImage(image_bytes, _subtype=subtype)

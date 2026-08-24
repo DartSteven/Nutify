@@ -8,6 +8,14 @@ import { useEffect, useRef } from 'react'
 
 import { destroyChartSafely } from '../../lib/charts/safeChartDestroy'
 import {
+  REALTIME_FRAME_RATE,
+  pauseRealtimeWhenHidden,
+  resolveChartPixelRatio,
+  resolveRealtimeDelayMs,
+  resolveRealtimeRefreshMs,
+} from '../../lib/charts/realtimePerformance'
+import { applyChartJsTheme, resolveChartTheme, watchChartTheme } from '../../lib/charts/theme'
+import {
   BUFFER_SIZE,
   FALLBACK_LOAD,
   MAX_POINTS,
@@ -31,7 +39,6 @@ type ChartContext = {
   data: {
     datasets: ChartDataset[]
   }
-  update: (mode?: string) => void
 }
 
 type ChartConstructor = new (
@@ -54,9 +61,6 @@ const SCRIPT_PATHS = [
   `${SCRIPT_BASE}chartjs-adapter-luxon.min.js`,
   `${SCRIPT_BASE}chartjs-plugin-streaming.min.js`,
 ]
-
-const CHART_REFRESH_MS = 1000
-const CHART_DELAY_MS = 1000
 
 let chartLoaderPromise: Promise<void> | null = null
 
@@ -182,6 +186,7 @@ export function MainRealtimeChart({ latestData, pollingIntervalMs }: MainRealtim
 
   useEffect(() => {
     let disposed = false
+    let unwatchTheme = () => {}
 
     const mountChart = async () => {
       let loaded = false
@@ -211,6 +216,7 @@ export function MainRealtimeChart({ latestData, pollingIntervalMs }: MainRealtim
       }
 
       const now = Date.now()
+      const refreshMs = resolveRealtimeRefreshMs(pollingIntervalMs)
       const baseValues = getBaseValues(latestDataRef.current)
       const synthetic = generateSyntheticSeries(now, baseValues.power, baseValues.load)
       const syntheticPowerData = synthetic.realPower.map((point) => ({ x: point.timestamp, y: point.value }))
@@ -223,6 +229,7 @@ export function MainRealtimeChart({ latestData, pollingIntervalMs }: MainRealtim
       const powerGradient = context.createLinearGradient(0, 0, 0, 300)
       powerGradient.addColorStop(0, 'rgba(0, 200, 83, 0.3)')
       powerGradient.addColorStop(1, 'rgba(0, 200, 83, 0.0)')
+      const theme = resolveChartTheme()
 
       const onRefresh = (chart: ChartContext) => {
         if (!chart?.data?.datasets) {
@@ -278,7 +285,6 @@ export function MainRealtimeChart({ latestData, pollingIntervalMs }: MainRealtim
           }
         })
 
-        chart.update('quiet')
       }
 
       const chart = new window.Chart(context, {
@@ -312,18 +318,21 @@ export function MainRealtimeChart({ latestData, pollingIntervalMs }: MainRealtim
         options: {
           responsive: true,
           maintainAspectRatio: false,
+          devicePixelRatio: resolveChartPixelRatio(),
+          normalized: true,
+          animation: false,
           plugins: {
             legend: {
               position: 'top',
               labels: {
-                color: '#ffffff',
+                color: theme.textColor,
                 padding: 15,
               },
             },
             tooltip: {
-              backgroundColor: 'rgba(0, 0, 0, 0.7)',
-              titleColor: '#ffffff',
-              bodyColor: '#ffffff',
+              backgroundColor: theme.tooltipBackground,
+              titleColor: theme.tooltipTextColor,
+              bodyColor: theme.tooltipTextColor,
               callbacks: {
                 label: (tooltipItem: { dataset: { label?: string }; parsed: { y: number } }) => {
                   const label = tooltipItem.dataset.label ?? ''
@@ -337,16 +346,19 @@ export function MainRealtimeChart({ latestData, pollingIntervalMs }: MainRealtim
                 },
               },
             },
-            streaming: {
-              duration: 60000,
-              refresh: CHART_REFRESH_MS,
-              delay: CHART_DELAY_MS,
-              onRefresh,
-            },
           },
           scales: {
             x: {
               type: 'realtime',
+              realtime: {
+                duration: 60_000,
+                refresh: refreshMs,
+                delay: resolveRealtimeDelayMs(refreshMs),
+                frameRate: REALTIME_FRAME_RATE,
+                pause: pauseRealtimeWhenHidden,
+                ttl: 60_000,
+                onRefresh,
+              },
               time: {
                 unit: 'second',
                 displayFormats: {
@@ -356,8 +368,8 @@ export function MainRealtimeChart({ latestData, pollingIntervalMs }: MainRealtim
                 },
                 tooltipFormat: 'HH:mm:ss',
               },
-              grid: { display: false },
-              ticks: { maxRotation: 0, autoSkip: true, autoSkipPadding: 20 },
+              grid: { display: false, color: theme.gridColor },
+              ticks: { maxRotation: 0, autoSkip: true, autoSkipPadding: 20, color: theme.mutedTextColor },
             },
             y: {
               min: 0,
@@ -369,7 +381,7 @@ export function MainRealtimeChart({ latestData, pollingIntervalMs }: MainRealtim
                 const max = Math.max(...data.map((point) => point.y))
                 return Math.max(100, Math.ceil(max * 1.2))
               },
-              grid: { display: false },
+              grid: { display: false, color: theme.gridColor },
               ticks: {
                 stepSize: 20,
                 color: '#00c853',
@@ -377,7 +389,7 @@ export function MainRealtimeChart({ latestData, pollingIntervalMs }: MainRealtim
               title: {
                 display: true,
                 text: 'Power (W)',
-                color: '#ffffff',
+                color: theme.textColor,
               },
             },
           },
@@ -385,20 +397,19 @@ export function MainRealtimeChart({ latestData, pollingIntervalMs }: MainRealtim
             intersect: false,
             mode: 'nearest',
           },
-          animation: {
-            duration: 1000,
-            easing: 'easeOutQuart',
-          },
         },
       })
 
       chartRef.current = chart
+      applyChartJsTheme(chart, { preserveTickColors: ['y'] })
+      unwatchTheme = watchChartTheme(() => applyChartJsTheme(chart, { preserveTickColors: ['y'] }))
     }
 
     void mountChart()
 
     return () => {
       disposed = true
+      unwatchTheme()
       const chart = chartRef.current
       chartRef.current = null
       destroyChartSafely(chart, 'MainRealtimeChart')

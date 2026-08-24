@@ -1,0 +1,20 @@
+name: Release integrity
+
+on:
+  release:
+    types: [published]
+
+permissions:
+  contents: read
+
+jobs:
+  verify-assets:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Download release assets
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.event.release.tag_name }}
+        run: gh release download "$TAG" --repo "$GITHUB_REPOSITORY"
+      - name: Verify checksums
+        run: sha256sum --check SHA256SUMS

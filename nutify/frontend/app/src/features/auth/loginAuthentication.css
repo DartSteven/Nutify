@@ -1,0 +1,135 @@
+.login-methods {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+  margin-top: 0.5rem;
+}
+
+.login-method {
+  position: relative;
+  display: flex;
+  min-height: 180px;
+  padding: 1.3rem;
+  overflow: hidden;
+  color: #1f3446;
+  text-align: left;
+  text-decoration: none;
+  border: 1px solid rgba(127, 156, 181, 0.25);
+  border-radius: 15px;
+  background: linear-gradient(145deg, #f8fbfd, #e9f1f6);
+  cursor: pointer;
+  transition: transform 160ms ease, border-color 160ms ease;
+}
+
+.login-method::after {
+  position: absolute;
+  right: -40px;
+  bottom: -65px;
+  width: 150px;
+  height: 150px;
+  content: '';
+  border: 1px solid rgba(69, 210, 192, 0.23);
+  border-radius: 50%;
+}
+
+.login-method:hover {
+  transform: translateY(-3px);
+  border-color: rgba(66, 204, 187, 0.7);
+}
+
+.login-method-sso {
+  color: #f1fbff;
+  background: linear-gradient(145deg, #0f4e59, #112b40 72%);
+}
+
+.login-method-icon {
+  display: grid;
+  flex: 0 0 auto;
+  width: 46px;
+  height: 46px;
+  margin-right: 0.9rem;
+  color: #65ded0;
+  place-items: center;
+  border-radius: 13px;
+  background: rgba(83, 215, 199, 0.12);
+}
+
+.login-method-copy {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+.login-method-copy strong {
+  margin-bottom: 0.45rem;
+  font-size: 1.05rem;
+}
+
+.login-method-copy small {
+  color: #9cafc1;
+  line-height: 1.45;
+}
+
+.login-method-copy em {
+  margin-top: auto;
+  padding-top: 1.2rem;
+  color: #68d9cc;
+  font-size: 0.76rem;
+  font-style: normal;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.login-method-back {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  margin-bottom: 1rem;
+  padding: 0;
+  color: #7dcfc6;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+}
+
+#root .login-authentication-page .wizard-form .form-group label {
+  color: #354b5e;
+}
+
+#root .login-authentication-page .wizard-form .form-group input[type='text'],
+#root .login-authentication-page .wizard-form .form-group input[type='password'] {
+  color: #172b3d;
+  caret-color: #172b3d;
+  border-color: #c8d5df;
+  background: #fff;
+  color-scheme: light;
+}
+
+#root .login-authentication-page .wizard-form .form-group input[type='text']::placeholder,
+#root .login-authentication-page .wizard-form .form-group input[type='password']::placeholder {
+  color: #5f7181;
+  opacity: 1;
+}
+
+#root .login-authentication-page .wizard-form .form-group input[type='text']:focus,
+#root .login-authentication-page .wizard-form .form-group input[type='password']:focus {
+  border-color: #268ecb;
+  box-shadow: 0 0 0 3px rgba(38, 142, 203, 0.14);
+}
+
+#root .login-authentication-page .wizard-form .form-group input:-webkit-autofill {
+  box-shadow: 0 0 0 1000px #fff inset;
+  -webkit-text-fill-color: #172b3d;
+}
+
+@media (max-width: 620px) {
+  .login-methods { grid-template-columns: 1fr; }
+  .login-method { min-height: 135px; }
+}
+
+:root[data-theme=dark] .login-method {
+  color: #f1fbff;
+  background: linear-gradient(145deg, rgba(28, 43, 59, 0.92), rgba(13, 24, 36, 0.96));
+}

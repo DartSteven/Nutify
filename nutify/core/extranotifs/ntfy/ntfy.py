@@ -11,6 +11,7 @@ from flask import current_app
 from core.logger import system_logger
 from core.notifications import (
     build_notification_card,
+    fill_missing_target_metrics,
     normalize_event_code,
     normalize_render_mode,
     render_notification_card_png,
@@ -284,12 +285,18 @@ def test_notification(config, event_type=None):
         title = f"[{server_name}] Test Notification"
         if event_type:
             normalized_event = normalize_event_code(event_type)
+            target_id = config.get('target_id')
+            try:
+                target_id = int(target_id) if target_id is not None else None
+            except (TypeError, ValueError):
+                target_id = None
             card = build_notification_card(
                 normalized_event,
                 server_name=server_name,
+                target_id=target_id,
                 target_name=str(config.get('display_name') or config.get('name') or 'Ntfy'),
                 target_label='notify-test',
-                metrics={},
+                metrics=fill_missing_target_metrics(target_id),
                 reason='manual test',
             )
             message = render_ntfy_text_from_card(card, render_mode=notifier.render_mode)

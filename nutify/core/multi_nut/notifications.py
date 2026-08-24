@@ -15,6 +15,8 @@ from core.notifications import (
     build_mail_template_data_from_card,
     build_notification_card,
     build_webhook_event_data_from_card,
+    fill_missing_target_metrics,
+    normalize_notification_metrics,
     normalize_event_code,
 )
 
@@ -26,27 +28,6 @@ _DEDUPE_EVENT_TYPES = {'COMMBAD', 'COMMOK'}
 _DEDUPE_WINDOW_SECONDS = 5.0
 _recent_event_dispatches: Dict[tuple[int, str], float] = {}
 _dedupe_lock = Lock()
-_CARD_METRIC_KEYS = (
-    'ups_status',
-    'battery_charge',
-    'battery_runtime',
-    'ups_load',
-    'ups_realpower',
-    'input_voltage',
-    'output_voltage',
-    'battery_voltage',
-    'battery_temperature',
-)
-_CARD_NUMERIC_KEYS = {
-    'battery_charge',
-    'battery_runtime',
-    'ups_load',
-    'ups_realpower',
-    'input_voltage',
-    'output_voltage',
-    'battery_voltage',
-    'battery_temperature',
-}
 
 
 def _should_suppress_duplicate_dispatch(target_id: int, event_type: str) -> bool:
@@ -102,83 +83,12 @@ def _resolve_server_name() -> str:
         return ''
 
 
-def _safe_float(value):
-    try:
-        return float(value)
-    except (TypeError, ValueError):
-        return None
-
-
-def _coerce_metric_value(key: str, value):
-    if value in (None, ''):
-        return None
-    if key in _CARD_NUMERIC_KEYS:
-        return _safe_float(value)
-    if key == 'ups_status':
-        normalized = str(value).strip()
-        return normalized or None
-    return value
-
-
-def _normalize_input_metrics(metrics: Optional[Dict[str, object]]) -> Dict[str, object]:
-    normalized: Dict[str, object] = {}
-    for key in _CARD_METRIC_KEYS:
-        value = _coerce_metric_value(key, (metrics or {}).get(key))
-        if value is not None:
-            normalized[key] = value
-    return normalized
-
-
-def _fill_missing_metrics_from_storage(target_id: int, metrics: Dict[str, object]) -> Dict[str, object]:
-    missing = [key for key in _CARD_METRIC_KEYS if metrics.get(key) is None]
-    if not missing:
-        return metrics
-
-    try:
-        from .storage import extract_metric, get_latest_target_snapshot, load_target_history
-
-        latest_snapshot = get_latest_target_snapshot(int(target_id))
-        if isinstance(latest_snapshot, dict):
-            for key in list(missing):
-                candidate = _coerce_metric_value(key, extract_metric(latest_snapshot, key))
-                if candidate is None:
-                    continue
-                metrics[key] = candidate
-                missing.remove(key)
-
-        if not missing:
-            return metrics
-
-        # Walk latest history backwards and pick the first non-null value per metric.
-        history = load_target_history(int(target_id), hours=24, limit=1440)
-        for row in reversed(history):
-            if not isinstance(row, dict):
-                continue
-            for key in list(missing):
-                candidate = _coerce_metric_value(key, extract_metric(row, key))
-                if candidate is None:
-                    continue
-                metrics[key] = candidate
-                missing.remove(key)
-            if not missing:
-                break
-    except Exception as exc:
-        logger.debug(
-            "Multi-NUT notification metrics fallback failed target_id=%s: %s",
-            target_id,
-            exc,
-        )
-
-    return metrics
-
-
 def _resolve_notification_metrics(target, metrics: Optional[Dict[str, object]]) -> Dict[str, object]:
-    resolved = _normalize_input_metrics(metrics)
     try:
         target_id = int(getattr(target, 'id'))
     except (TypeError, ValueError):
-        return resolved
-    return _fill_missing_metrics_from_storage(target_id, resolved)
+        return normalize_notification_metrics(metrics)
+    return fill_missing_target_metrics(target_id, metrics)
 
 
 def _build_unified_card(target, event_type: str, metrics: Optional[Dict[str, object]], reason: str) -> Dict[str, Any]:

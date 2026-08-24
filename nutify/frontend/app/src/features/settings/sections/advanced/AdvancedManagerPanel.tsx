@@ -17,6 +17,8 @@ type AdvancedManagerPanelProps = {
   fleetAlert: AlertState
   targetForm: TargetForm
   canSaveTarget: boolean
+  targetSaveBusy: boolean
+  targetTestBusy: boolean
   targets: MultiNutTarget[]
   onTargetFormChange: (updater: (prev: TargetForm) => TargetForm) => void
   onResetTargetForm: () => void
@@ -41,6 +43,8 @@ export function AdvancedManagerPanel({
   fleetAlert,
   targetForm,
   canSaveTarget,
+  targetSaveBusy,
+  targetTestBusy,
   targets,
   onTargetFormChange,
   onResetTargetForm,
@@ -150,7 +154,7 @@ export function AdvancedManagerPanel({
           </div>
           <div className="nut_manager_target_actions">
             <button className="options_btn" type="button" onClick={() => openEditorForExisting(target)}><i className="fas fa-edit" /> Edit</button>
-            <button className="options_btn" type="button" onClick={() => void onToggleTarget(target.id, !Boolean(target.enabled))}><i className="fas fa-power-off" /> {target.enabled ? 'Disable' : 'Enable'}</button>
+            <button className="options_btn" type="button" onClick={() => void onToggleTarget(target.id, !target.enabled)}><i className="fas fa-power-off" /> {target.enabled ? 'Disable' : 'Enable'}</button>
             <button className="options_btn" type="button" onClick={() => void onSetPrimaryTarget(target.id)}><i className="fas fa-star" /> Set Primary</button>
             <button className="options_btn" type="button" onClick={() => void onPollTargetNow(target.id)}><i className="fas fa-network-wired" /> Poll Now</button>
             <button className="options_btn" type="button" onClick={() => void onDownloadNotifyCmdScript(target)}><i className="fas fa-file-code" /> Generate Script</button>
@@ -173,7 +177,7 @@ export function AdvancedManagerPanel({
           <div className="notification_header">
             <h2>NUT Manager</h2>
             <div className="nut_manager_header_actions">
-              <button type="button" id="multiNutNewBtn" className="options_btn options_btn_primary" onClick={openEditorForNew}>
+              <button type="button" id="multiNutNewBtn" className="options_btn options_btn_primary" onClick={openEditorForNew} disabled={targetSaveBusy || targetTestBusy}>
                 <i className="fas fa-plus" /> Add Target
               </button>
             </div>
@@ -184,7 +188,9 @@ export function AdvancedManagerPanel({
               : 'Single-monitor profile still uses the same target manager. Keep one primary target enabled.'}
           </p>
         </div>
-        <div className="p-4" id="multiNutAlertContainer">{renderOptionalAlert(fleetAlert)}</div>
+        {!editorVisible ? (
+          <div className="p-4" id="multiNutAlertContainer">{renderOptionalAlert(fleetAlert)}</div>
+        ) : null}
       </div>
       <div className="options_card mt-4" id="multiNutTargetsCard">
         <div className="card_header">
@@ -202,20 +208,23 @@ export function AdvancedManagerPanel({
                 type="button"
                 className="options_btn options_btn_primary"
                 onClick={() => void onSaveTarget()}
-                disabled={!canSaveTarget}
+                disabled={!canSaveTarget || targetSaveBusy || targetTestBusy}
                 title={canSaveTarget ? 'Save target' : 'Run Test Connection successfully before saving'}
               >
-                <i className="fas fa-save" /> Save Target
+                <i className="fas fa-save" /> {targetSaveBusy ? 'Saving...' : 'Save Target'}
               </button>
-              <button type="button" className="options_btn" onClick={() => void onTestTarget()}>
-                <i className="fas fa-network-wired" /> Test Connection
+              <button type="button" className="options_btn" onClick={() => void onTestTarget()} disabled={targetSaveBusy || targetTestBusy}>
+                <i className="fas fa-network-wired" /> {targetTestBusy ? 'Testing...' : 'Test Connection'}
               </button>
-              <button type="button" className="options_btn options_btn_secondary" onClick={closeEditor}>
+              <button type="button" className="options_btn options_btn_secondary" onClick={closeEditor} disabled={targetSaveBusy || targetTestBusy}>
                 <i className="fas fa-times" /> Close
               </button>
             </div>
           </div>
         </div>
+        {fleetAlert ? (
+          <div className="p-4" id="multiNutEditorAlertContainer">{renderOptionalAlert(fleetAlert)}</div>
+        ) : null}
         {!canSaveTarget ? (
           <div className="p-4">
             <div className="options_alert options_alert_info">

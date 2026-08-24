@@ -114,6 +114,55 @@ detect_usb_devices() {
     lsusb 2>/dev/null || startup_log "WARNING: lsusb command not found or failed"
 }
 
+# Grant unprivileged runtime users access through host device group IDs.
+# This avoids changing permissions on bind-mounted host USB device nodes.
+configure_usb_runtime_groups() {
+    local usb_gids gid group_name runtime_user
+
+    if [ ! -d "/dev/bus/usb" ]; then
+        startup_log "WARNING: USB bus is not mounted; nut-scanner cannot discover local USB devices"
+        return 0
+    fi
+
+    usb_gids=$(
+        {
+            find /dev/bus/usb -type c -printf '%G\n' 2>/dev/null
+            printf '%s\n' "${NUTIFY_USB_GID:-}"
+        } | awk '/^[0-9]+$/ { seen[$1] = 1 } END { for (gid in seen) print gid }'
+    )
+
+    if [ -z "$usb_gids" ]; then
+        startup_log "WARNING: No USB device group IDs were found"
+        return 0
+    fi
+
+    for gid in $usb_gids; do
+        if [ "$gid" = "0" ]; then
+            startup_log "WARNING: Refusing to add runtime users to USB GID 0 (root); configure a dedicated host udev group"
+            continue
+        fi
+
+        group_name=$(getent group "$gid" | cut -d: -f1 | head -n1)
+        if [ -z "$group_name" ]; then
+            group_name="nutify-usb-$gid"
+            groupadd -g "$gid" "$group_name" 2>/dev/null || {
+                startup_log "WARNING: Unable to create USB access group for GID $gid"
+                continue
+            }
+        fi
+
+        for runtime_user in "${NUTIFY_WEB_USER:-nut}" "${NUT_SERVICE_USER:-nut}"; do
+            if id "$runtime_user" >/dev/null 2>&1; then
+                usermod -a -G "$group_name" "$runtime_user" || {
+                    startup_log "WARNING: Unable to grant $runtime_user USB group $gid"
+                    continue
+                }
+            fi
+        done
+        startup_log "USB runtime access configured for device group GID $gid"
+    done
+}
+
 # Function to fix USB permissions if applicable
 fix_usb_permissions() {
     case "${SKIP_PERMCHECK,,}" in

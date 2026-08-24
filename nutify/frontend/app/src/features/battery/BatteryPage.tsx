@@ -228,7 +228,14 @@ export function BatteryPage() {
   const runtimeStats = stats.battery_runtime
   const voltageStats = stats.battery_voltage
   const combinedSeries = useMemo(() => buildBatteryCombinedSeries(history), [history])
-  const combinedChartOptions = useMemo(() => buildBatteryCombinedOptions(timezone), [timezone])
+  const combinedChartOptions = useMemo(
+    () => buildBatteryCombinedOptions(
+      timezone,
+      combinedSeries.flatMap((series) => series.data.map((point) => point.x)),
+      period.mode === 'range' && period.rangeFrom !== period.rangeTo,
+    ),
+    [combinedSeries, period.mode, period.rangeFrom, period.rangeTo, timezone],
+  )
 
   const batteryType = String((isRealtimeMode ? realtimeData.battery_type : metrics.battery_type) ?? 'Unknown')
   const batteryDateValue = String((isRealtimeMode ? realtimeData.battery_date : metrics.battery_date) ?? '').trim()
@@ -309,10 +316,10 @@ export function BatteryPage() {
   )
   const hasCombinedChartData = useMemo(
     () =>
-      combinedSeries.some((series) =>
-        series.data.some((point) => Number.isFinite(point.y) && Number(point.y) > 0),
+      !isRealtimeMode || combinedSeries.some((series) =>
+        series.data.some((point) => Number.isFinite(point.x) && Number.isFinite(point.y)),
       ),
-    [combinedSeries],
+    [combinedSeries, isRealtimeMode],
   )
 
   return (

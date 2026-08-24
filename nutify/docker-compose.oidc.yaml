@@ -1,0 +1,21 @@
+# Advanced environment-managed OpenID Connect override.
+# Run together with docker-compose.yaml from this directory.
+services:
+  nut:
+    environment:
+      OIDC_CONFIG_SOURCE: environment
+      OIDC_ENABLED: "true"
+      OIDC_ISSUER: ${OIDC_ISSUER:?Set the HTTPS OIDC issuer URL in .env}
+      OIDC_CLIENT_ID: ${OIDC_CLIENT_ID:?Set the OIDC client ID in .env}
+      OIDC_CLIENT_SECRET: ${OIDC_CLIENT_SECRET:?Set the OIDC client secret in .env}
+      OIDC_REDIRECT_URI: ${OIDC_REDIRECT_URI:?Set the exact OIDC callback URL in .env}
+      OIDC_SCOPES: ${OIDC_SCOPES:-openid profile email groups}
+      OIDC_USERNAME_CLAIM: ${OIDC_USERNAME_CLAIM:-preferred_username}
+      OIDC_GROUPS_CLAIM: ${OIDC_GROUPS_CLAIM:-groups}
+      OIDC_ADMIN_GROUP: ${OIDC_ADMIN_GROUP:?Set the authorized OIDC admin group in .env}
+      OIDC_USER_GROUP: ${OIDC_USER_GROUP:-}
+      OIDC_ALLOW_ALL_USERS: "false"
+      OIDC_PROVIDER_NAME: ${OIDC_PROVIDER_NAME:-SSO}
+      OIDC_BUTTON_LABEL: ${OIDC_BUTTON_LABEL:-Sign in with Single Sign-On}
+      OIDC_AUTO_REDIRECT: ${OIDC_AUTO_REDIRECT:-false}
+      OIDC_ALLOW_INSECURE_HTTP: "false"

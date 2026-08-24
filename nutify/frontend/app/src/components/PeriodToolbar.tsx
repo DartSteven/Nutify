@@ -6,7 +6,15 @@
 
 import { useEffect, useRef, useState, type ChangeEvent } from 'react'
 
+import {
+  ROLLING_PERIOD_OPTIONS,
+  resolveRollingPeriod,
+  type RollingPeriodPreset,
+} from '../lib/utils/reportPeriods'
+
 export type PeriodMode = 'realtime' | 'today' | 'day' | 'range'
+type QuickPresetMode = RollingPeriodPreset
+type ModeOptionValue = PeriodMode | QuickPresetMode
 
 export type PeriodSelection = {
   mode: PeriodMode
@@ -38,6 +46,11 @@ function todayIso() {
   const month = String(now.getMonth() + 1).padStart(2, '0')
   const day = String(now.getDate()).padStart(2, '0')
   return `${year}-${month}-${day}`
+}
+
+function resolveQuickPreset(mode: QuickPresetMode): { rangeFrom: string; rangeTo: string } {
+  const range = resolveRollingPeriod(mode)
+  return { rangeFrom: range.from, rangeTo: range.to }
 }
 
 export function createDefaultPeriodSelection(): PeriodSelection {
@@ -85,15 +98,17 @@ export function PeriodToolbar({
   includeRealtime = true,
   disabled = false,
 }: PeriodToolbarProps) {
-  const modeOptions: Array<{ value: PeriodMode; label: string }> = includeRealtime
+  const modeOptions: Array<{ value: ModeOptionValue; label: string }> = includeRealtime
     ? [
         { value: 'realtime', label: 'Realtime' },
         { value: 'today', label: 'Today' },
+        ...ROLLING_PERIOD_OPTIONS,
         { value: 'day', label: 'Select Day' },
         { value: 'range', label: 'Date Range' },
       ]
     : [
         { value: 'today', label: 'Today' },
+        ...ROLLING_PERIOD_OPTIONS,
         { value: 'day', label: 'Select Day' },
         { value: 'range', label: 'Date Range' },
       ]
@@ -106,7 +121,18 @@ export function PeriodToolbar({
   }
 
   const onModeChange = (event: ChangeEvent<HTMLSelectElement>) => {
-    patch({ mode: event.target.value as PeriodMode })
+    const nextMode = event.target.value as ModeOptionValue
+    if (nextMode === 'last_week' || nextMode === 'last_month' || nextMode === 'last_year') {
+      const preset = resolveQuickPreset(nextMode)
+      onChange({
+        ...value,
+        mode: 'range',
+        rangeFrom: preset.rangeFrom,
+        rangeTo: preset.rangeTo,
+      })
+      return
+    }
+    patch({ mode: nextMode as PeriodMode })
   }
 
   return (
@@ -232,15 +258,17 @@ export function PeriodCompactControl({
   const [isOpen, setIsOpen] = useState(false)
   const shownValue = displayValue ?? value
 
-  const modeOptions: Array<{ value: PeriodMode; label: string }> = includeRealtime
+  const modeOptions: Array<{ value: ModeOptionValue; label: string }> = includeRealtime
     ? [
         { value: 'realtime', label: 'Real Time' },
         { value: 'today', label: 'Today' },
+        ...ROLLING_PERIOD_OPTIONS,
         { value: 'day', label: 'Select Day' },
         { value: 'range', label: 'Date Range' },
       ]
     : [
         { value: 'today', label: 'Today' },
+        ...ROLLING_PERIOD_OPTIONS,
         { value: 'day', label: 'Select Day' },
         { value: 'range', label: 'Date Range' },
       ]
@@ -278,10 +306,23 @@ export function PeriodCompactControl({
     setIsOpen(false)
   }
 
-  const handleModeSelect = (mode: PeriodMode) => {
+  const handleModeSelect = (mode: ModeOptionValue) => {
+    if (mode === 'last_week' || mode === 'last_month' || mode === 'last_year') {
+      const preset = resolveQuickPreset(mode)
+      const nextValue: PeriodSelection = {
+        ...value,
+        mode: 'range',
+        rangeFrom: preset.rangeFrom,
+        rangeTo: preset.rangeTo,
+      }
+      patch(nextValue)
+      emitApply(nextValue)
+      return
+    }
+
     const nextValue: PeriodSelection = {
       ...value,
-      mode,
+      mode: mode as PeriodMode,
     }
 
     if (mode === 'today') {

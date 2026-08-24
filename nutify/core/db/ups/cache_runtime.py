@@ -99,6 +99,8 @@ def register_cache_socket_handlers(websocket, ups_data_cache, logger):
 
 def init_websocket(websocket, app, logger):
     """Initialize cache websocket transport for the Flask app."""
+    from core.socket_config import socketio_server_options
+
     logger.info("🔌 Initializing UPS Cache WebSocket")
-    websocket.init_app(app, async_mode='eventlet')
+    websocket.init_app(app, async_mode='eventlet', **socketio_server_options())
     return websocket

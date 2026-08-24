@@ -4,7 +4,7 @@
  * Frontend module used by Nutify React UI flows and state management.
  */
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import ReactECharts from 'echarts-for-react'
 
 import {
@@ -31,10 +31,6 @@ export function MultiUpsLocationNetworkChart({ points }: Props) {
   const [globeDistanceOverride, setGlobeDistanceOverride] = useState<number | null>(null)
   const [geoZoomOverride, setGeoZoomOverride] = useState<number | null>(null)
   const [resetNonce, setResetNonce] = useState(0)
-  const stablePointsRef = useRef<{ signature: string; points: ReturnType<typeof asChartPoints> }>({
-    signature: '',
-    points: [],
-  })
 
   useEffect(() => {
     let cancelled = false
@@ -74,41 +70,12 @@ export function MultiUpsLocationNetworkChart({ points }: Props) {
         .join('|'),
     [chartPoints],
   )
-  const pointsSignature = useMemo(
-    () =>
-      chartPoints
-        .map((point) => {
-          const [longitude, latitude] = point.coordinates
-          return [
-            point.id,
-            point.name,
-            point.health,
-            point.isPrimary ? '1' : '0',
-            longitude.toFixed(5),
-            latitude.toFixed(5),
-          ].join(':')
-        })
-        .join('|'),
-    [chartPoints],
-  )
-
-  const stablePoints = useMemo(() => {
-    if (stablePointsRef.current.signature === pointsSignature) {
-      return stablePointsRef.current.points
-    }
-    stablePointsRef.current = {
-      signature: pointsSignature,
-      points: chartPoints,
-    }
-    return chartPoints
-  }, [chartPoints, pointsSignature])
-
   const viewControl = useMemo(() => {
-    if (stablePoints.length === 0) {
+    if (chartPoints.length === 0) {
       return null
     }
-    return computeViewControl(stablePoints)
-  }, [stablePoints])
+    return computeViewControl(chartPoints)
+  }, [chartPoints])
 
   useEffect(() => {
     setGlobeDistanceOverride(null)
@@ -128,17 +95,17 @@ export function MultiUpsLocationNetworkChart({ points }: Props) {
   }, [viewControl, globeDistanceOverride, geoZoomOverride])
 
   const chartOption = useMemo(() => {
-    if (stablePoints.length === 0 || !effectiveViewControl) {
+    if (chartPoints.length === 0 || !effectiveViewControl) {
       return null
     }
     if (renderMode === 'globe') {
-      return buildGlobeOption(stablePoints, effectiveViewControl)
+      return buildGlobeOption(chartPoints, effectiveViewControl)
     }
     if (renderMode === 'map') {
-      return build2dMapOption(stablePoints, effectiveViewControl)
+      return build2dMapOption(chartPoints, effectiveViewControl)
     }
     return null
-  }, [renderMode, stablePoints, effectiveViewControl])
+  }, [renderMode, chartPoints, effectiveViewControl])
 
   const applyZoomStep = useCallback(
     (direction: 'in' | 'out') => {

@@ -1,7 +1,7 @@
  # Build stage
 FROM python:3.13-slim-bookworm AS builder
 
-ENV NUT_VERSION=2.8.4
+ENV NUT_VERSION=2.8.5
 
 # Install build dependencies
 RUN apt-get update && apt-get install -y --no-install-recommends \
@@ -108,6 +108,7 @@ FROM python:3.13-slim-bookworm
        net-tools \
        iputils-ping \
        socat \
+       gosu \
        libudev1 \
        usbutils \
        lsof \
@@ -187,6 +188,7 @@ FROM python:3.13-slim-bookworm
    COPY src/start-services.sh /usr/local/bin/
    COPY src/generate-settings.sh /usr/local/bin/
    COPY nutify/ /app/nutify/
+   COPY nutify/config/settings_path.txt /app/nutify/config/settings_path.txt
    COPY --from=frontend-builder /app/nutify/frontend/app/dist /app/nutify/frontend/app/dist
 
    # Set script permissions and create necessary directories
@@ -206,7 +208,7 @@ FROM python:3.13-slim-bookworm
        ([ -d "/usr/bin" ] && [ "$(ls -A /usr/bin/python* 2>/dev/null)" ] && chmod 755 /usr/bin/python* || true)
 
    # Ensure NUT binaries are in PATH
-   ENV PATH="/usr/bin:/usr/sbin:/root/.local/bin:${PATH}"
+   ENV PATH="/usr/bin:/usr/sbin:/usr/lib/nut:/root/.local/bin:${PATH}"
 
    # Add LD_LIBRARY_PATH to ensure libraries are found
    ENV LD_LIBRARY_PATH=/usr/lib:/lib

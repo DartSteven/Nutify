@@ -10,7 +10,10 @@ export function validateSendReportNow(reportSettings: ReportSettingsState): stri
   if (reportSettings.selectedReports.length === 0) {
     return 'Please select at least one report type'
   }
-  if (!reportSettings.fromDate || !reportSettings.toDate) {
+  if (!reportSettings.periodType) {
+    return 'Please select a report period'
+  }
+  if (reportSettings.periodType === 'range' && (!reportSettings.fromDate || !reportSettings.toDate)) {
     return 'Please select both start and end dates'
   }
   if (!reportSettings.mailConfigId) {

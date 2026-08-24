@@ -95,17 +95,6 @@ class WebhookConfig:
     verify_ssl = Column(Boolean, default=True)
     is_default = Column(Boolean, default=False)
     
-    # Event notification settings
-    notify_onbatt = Column(Boolean, default=False)
-    notify_online = Column(Boolean, default=False)
-    notify_lowbatt = Column(Boolean, default=False)
-    notify_commok = Column(Boolean, default=False)
-    notify_commbad = Column(Boolean, default=False)
-    notify_shutdown = Column(Boolean, default=False)
-    notify_replbatt = Column(Boolean, default=False)
-    notify_nocomm = Column(Boolean, default=False)
-    notify_noparent = Column(Boolean, default=False)
-    
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(pytz.UTC))
     updated_at = Column(DateTime(timezone=True), 
                       default=lambda: datetime.now(pytz.UTC),
@@ -287,33 +276,9 @@ class WebhookConfig:
             'include_ups_data': self.include_ups_data,
             'verify_ssl': self.verify_ssl,
             'is_default': self.is_default,
-            'notify_onbatt': self.notify_onbatt,
-            'notify_online': self.notify_online,
-            'notify_lowbatt': self.notify_lowbatt,
-            'notify_commok': self.notify_commok,
-            'notify_commbad': self.notify_commbad,
-            'notify_shutdown': self.notify_shutdown,
-            'notify_replbatt': self.notify_replbatt,
-            'notify_nocomm': self.notify_nocomm,
-            'notify_noparent': self.notify_noparent,
             'created_at': utc_to_local(self.created_at).isoformat() if self.created_at else None,
             'updated_at': utc_to_local(self.updated_at).isoformat() if self.updated_at else None
         }
-    
-    def is_event_enabled(self, event_type):
-        """Check if notification for event type is enabled"""
-        event_map = {
-            'ONBATT': self.notify_onbatt,
-            'ONLINE': self.notify_online,
-            'LOWBATT': self.notify_lowbatt,
-            'COMMOK': self.notify_commok,
-            'COMMBAD': self.notify_commbad,
-            'SHUTDOWN': self.notify_shutdown,
-            'REPLBATT': self.notify_replbatt,
-            'NOCOMM': self.notify_nocomm,
-            'NOPARENT': self.notify_noparent
-        }
-        return event_map.get(event_type, False)
     
     @classmethod
     def utc_to_local(cls, utc_dt):

@@ -88,7 +88,9 @@ def create_blueprint():
         event_type = request.args.get('event_type')
         logger.info(f"API: Testing webhook with event type {event_type}")
         from core.extranotifs.webhook.webhook import test_notification
-        config_data = request.json
+        config_data = request.json or {}
+        if isinstance(config_data, dict) and request.args.get('target_id'):
+            config_data['target_id'] = request.args.get('target_id')
         result = test_notification(config_data, event_type)
         if result.get("success"):
             logger.info(f"API: Webhook test completed successfully")
@@ -104,11 +106,14 @@ def create_blueprint():
         from core.extranotifs.webhook.db import get_config_by_id
         from core.extranotifs.webhook.webhook import test_notification
         
-        config = get_config_by_id(config_id)
+        config = get_config_by_id(config_id, include_secrets=True)
         
         if not config:
             logger.warning(f"API: Webhook configuration {config_id} not found for testing")
             return jsonify({"success": False, "message": "Configuration not found"}), 404
+
+        if isinstance(config, dict) and request.args.get('target_id'):
+            config['target_id'] = request.args.get('target_id')
         
         result = test_notification(config, event_type)
         if result.get("success"):
@@ -145,7 +150,7 @@ def create_blueprint():
     def get_webhook_settings():
         from core.extranotifs.webhook.db import get_notification_settings
 
-        settings = get_notification_settings()
+        settings = get_notification_settings(target_id=request.args.get('target_id', type=int))
         return jsonify({"success": True, "settings": settings})
 
     @webhook_bp.route('/api/webhook/setting', methods=['POST'])
@@ -153,7 +158,10 @@ def create_blueprint():
     def save_webhook_setting():
         from core.extranotifs.webhook.db import save_notification_setting
 
-        result = save_notification_setting(request.json or {})
+        result = save_notification_setting(
+            request.json or {},
+            target_id=request.args.get('target_id', type=int),
+        )
         return jsonify(result)
     
     return webhook_bp 

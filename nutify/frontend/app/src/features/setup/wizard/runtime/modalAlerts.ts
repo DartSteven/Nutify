@@ -67,7 +67,7 @@ export function registerModalAlerts(ctx) {
     })
   }
 
-  ctx.actions.openModal = function openModal(isSuccess, message, output) {
+  ctx.actions.openModal = function openModal(isSuccess, message, output, nominalPower = null) {
     elements.testMessage.textContent = message
 
     if (elements.multiTargetTestList) {
@@ -84,16 +84,11 @@ export function registerModalAlerts(ctx) {
       elements.upscOutput.textContent = output || ''
     }
 
-    if (isSuccess && output && output !== 'Connection successful') {
-      const hasRealpowerNominal = output.includes('ups.realpower.nominal')
-      if (!hasRealpowerNominal) {
-        elements.missingRealpowerForm.classList.remove('hidden')
-        elements.closeModalBtn.onclick = function storeNominalAndClose() {
-          state.upsRealpowerNominal = ctx.actions.coerceOptionalPositiveInt(elements.realpowerInput.value)
-          ctx.actions.closeModal()
-        }
-      } else {
-        elements.closeModalBtn.onclick = ctx.actions.closeModal
+    if (isSuccess && nominalPower?.requires_manual_input) {
+      elements.missingRealpowerForm.classList.remove('hidden')
+      elements.closeModalBtn.onclick = function storeNominalAndClose() {
+        state.upsRealpowerNominal = ctx.actions.coerceOptionalPositiveInt(elements.realpowerInput.value)
+        ctx.actions.closeModal()
       }
     } else {
       elements.closeModalBtn.onclick = ctx.actions.closeModal

@@ -52,6 +52,7 @@ _CURRENCY_SYMBOLS = {
 
 _TARGET_TIMEZONE_CACHE: Dict[int, Tuple[float, object]] = {}
 _TARGET_TIMEZONE_CACHE_TTL = 30.0
+_ENERGY_METRIC_HINTS = ('ups_realpower', 'ups_power', 'ups_load', 'ups_realpower_nominal')
 
 
 def _safe_float(value, default: Optional[float] = None) -> Optional[float]:
@@ -600,12 +601,31 @@ def build_energy_payload(
         selected_date=selected_date,
         selected_day=selected_day,
     )
-    rows = _load_rows_for_window(
-        target_id,
-        start_local,
-        end_local,
-        metric_hints=('ups_realpower', 'ups_power', 'ups_load', 'ups_realpower_nominal'),
-    )
+    normalized_period = str(period or '').strip().lower()
+    rows: List[Dict[str, object]] = []
+    rollup_granularity = None
+    if normalized_period in {'today', 'day'}:
+        rollup_granularity = 'minute'
+    elif normalized_period == 'range':
+        span_days = max(0.0, (end_local - start_local).total_seconds() / 86400.0)
+        if span_days >= 3.0:
+            rollup_granularity = 'hour'
+    if rollup_granularity:
+        rows = _load_rollup_rows_for_window(
+            target_id=target_id,
+            start_local=start_local,
+            end_local=end_local,
+            granularity=rollup_granularity,
+            metric_hints=_ENERGY_METRIC_HINTS,
+        )
+    using_rollups = bool(rows and rollup_granularity)
+    if not rows:
+        rows = _load_rows_for_window(
+            target_id,
+            start_local,
+            end_local,
+            metric_hints=_ENERGY_METRIC_HINTS,
+        )
 
     if not rows:
         return {
@@ -636,7 +656,14 @@ def build_energy_payload(
         if load is not None:
             loads.append(load)
 
-        if previous_ts is not None and previous_power is not None:
+        if using_rollups:
+            sample_count = max(0, _safe_int(row.get('_sample_count'), 0))
+            duration_h = min(sample_count / 60.0, 1.0 if rollup_granularity == 'hour' else 1 / 60.0)
+            energy_part = compute_energy_wh(power, duration_h, target_id=target_id)
+            total_energy_wh += energy_part
+            cost_part = compute_cost(energy_part, price_per_kwh, target_id=target_id)
+            _distribute_cost(ts.astimezone(effective_tz), cost_part, distribution)
+        elif previous_ts is not None and previous_power is not None:
             delta_h = (ts - previous_ts).total_seconds() / 3600.0
             if delta_h > 0:
                 delta_h = min(delta_h, 1 / 3)
@@ -823,6 +850,9 @@ def _aggregate_energy_cost_from_rollups(
         local_start = _bucket_start_local(timestamp_utc.astimezone(timezone_obj), source_level)
         local_end = _advance_bucket_local(local_start, source_level)
         duration_hours = (local_end.astimezone(pytz.UTC) - local_start.astimezone(pytz.UTC)).total_seconds() / 3600.0
+        sample_count = max(0, _safe_int(row.get('_sample_count'), 0))
+        if sample_count:
+            duration_hours = min(duration_hours, sample_count / 60.0)
         if duration_hours <= 0:
             continue
 
@@ -886,15 +916,10 @@ def build_energy_cost_series(
         selected_date=selected_date,
         selected_day=selected_day,
     )
-    rows = _load_rows_for_window(
-        target_id,
-        start_local,
-        end_local,
-        metric_hints=('ups_realpower', 'ups_power', 'ups_load', 'ups_realpower_nominal'),
-    )
     level = _resolve_energy_level(period, start_local, end_local)
     aggregated_cost: Dict[datetime, float]
-    use_rollups = str(period or '').strip().lower() == 'range' and level in {'month', 'day', 'hour'}
+    normalized_period = str(period or '').strip().lower()
+    use_rollups = normalized_period in {'range', 'today', 'day'} and level in {'month', 'day', 'hour'}
     if use_rollups:
         source_level = _resolve_energy_rollup_source_level(level)
         rollup_rows: List[Dict[str, object]] = []
@@ -904,7 +929,7 @@ def build_energy_cost_series(
                 start_local=start_local,
                 end_local=end_local,
                 granularity=source_level,
-                metric_hints=('ups_realpower', 'ups_power', 'ups_load', 'ups_realpower_nominal'),
+                metric_hints=_ENERGY_METRIC_HINTS,
             )
         if rollup_rows:
             aggregated_cost = _aggregate_energy_cost_from_rollups(
@@ -917,6 +942,12 @@ def build_energy_cost_series(
                 nominal_default=nominal_default,
             )
         else:
+            rows = _load_rows_for_window(
+                target_id,
+                start_local,
+                end_local,
+                metric_hints=_ENERGY_METRIC_HINTS,
+            )
             aggregated_cost = _aggregate_energy_cost(
                 rows,
                 target_id=target_id,
@@ -926,6 +957,12 @@ def build_energy_cost_series(
                 nominal_default=nominal_default,
             )
     else:
+        rows = _load_rows_for_window(
+            target_id,
+            start_local,
+            end_local,
+            metric_hints=_ENERGY_METRIC_HINTS,
+        )
         aggregated_cost = _aggregate_energy_cost(
             rows,
             target_id=target_id,

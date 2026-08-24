@@ -36,7 +36,7 @@ export async function editMailConfigById(input: {
     smtpPort: config.smtp_port || '',
     username: config.username || '',
     password: '',
-    fromEmail: '',
+    fromEmail: config.from_email || '',
     toEmail: config.to_email || '',
     renderMode: config.render_mode || 'graphic',
     useTls: Boolean(config.tls),

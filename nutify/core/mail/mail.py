@@ -77,13 +77,10 @@ def load_encryption_key():
         if current_app and current_app.config.get('SECRET_KEY'):
             secret_key = current_app.config.get('SECRET_KEY')
             if secret_key:
-                # Store original value for debugging
-                key_preview = secret_key[:5] if isinstance(secret_key, str) else str(secret_key)[:5]
-                
                 # Ensure SECRET_KEY is stored as bytes
                 SECRET_KEY = secret_key.encode() if isinstance(secret_key, str) else secret_key
                 
-                logger.info(f"🔑 Secret key loaded from Flask app config (first 5 chars: {key_preview}...)")
+                logger.info("🔑 Secret key loaded from Flask app config")
                 
                 # Verify the key is valid by creating a test Fernet instance
                 try:
@@ -236,6 +233,45 @@ def scoped_notification_query(notification_model, target_id=None):
     """Return NotificationSettings query filtered by current target scope."""
     scoped_target_id = resolve_mail_target_id(target_id)
     return apply_target_scope(notification_model, notification_model.query, scoped_target_id), scoped_target_id
+
+
+def ensure_notification_setting(notification_model, event_type, target_id=None):
+    """Return one notification setting, creating a disabled default when missing."""
+    normalized_event = normalize_event_code(event_type)
+    query, scoped_target_id = scoped_notification_query(notification_model, target_id)
+    setting = query.filter(notification_model.event_type == normalized_event).first()
+    if setting:
+        return setting
+
+    try:
+        if hasattr(notification_model, 'init_notification_settings'):
+            notification_model.init_notification_settings(scoped_target_id)
+        query, _ = scoped_notification_query(notification_model, scoped_target_id)
+        setting = query.filter(notification_model.event_type == normalized_event).first()
+        if setting:
+            return setting
+
+        setting = notification_model(event_type=normalized_event, enabled=False)
+        if hasattr(setting, 'target_id'):
+            setting.target_id = scoped_target_id
+        db.session.add(setting)
+        db.session.commit()
+        logger.info(
+            "Created missing notification setting event=%s target_id=%s",
+            normalized_event,
+            scoped_target_id,
+        )
+        return setting
+    except Exception as exc:
+        db.session.rollback()
+        logger.warning(
+            "Failed to create missing notification setting event=%s target_id=%s: %s",
+            normalized_event,
+            scoped_target_id,
+            exc,
+        )
+        query, _ = scoped_notification_query(notification_model, scoped_target_id)
+        return query.filter(notification_model.event_type == normalized_event).first()
 
 
 def _safe_float(value, default=0.0):
@@ -442,6 +478,29 @@ def _build_target_scoped_ups_data(raw_target_id=None, ups_name=None):
         logger.warning(f"Using empty target-scoped UPS data for target_id={target_id}: {exc}")
         return _empty_target_payload(), int(target_id), None
 
+
+def _extract_msmtp_domain(from_email, smtp_server):
+    """Derive msmtp EHLO domain from sender address or SMTP host."""
+    domain_pattern = re.compile(
+        r'^(?=.{1,253}$)(?:(?!-)[A-Za-z0-9-]{1,63}(?<!-)\.)+[A-Za-z0-9-]{1,63}$'
+    )
+
+    def _is_valid_domain(value):
+        value = str(value or '').strip().lower()
+        return bool(value) and bool(domain_pattern.fullmatch(value))
+
+    sender = str(from_email or '').strip()
+    if sender and '@' in sender:
+        domain = sender.rsplit('@', 1)[-1].strip()
+        if _is_valid_domain(domain):
+            return domain
+
+    fallback = str(smtp_server or '').strip()
+    if _is_valid_domain(fallback):
+        return fallback
+
+    raise ValueError("Unable to derive a valid SMTP domain")
+
 def get_msmtp_config(config_data):
     """Generate msmtp configuration based on provider and settings"""
     provider = str(config_data.get('provider', '') or '').strip()
@@ -462,10 +521,17 @@ def get_msmtp_config(config_data):
     logger.debug(f"🔧 TLS(raw): {config_data.get('tls', config_data.get('use_tls', True))}")
     logger.debug(f"🔧 STARTTLS(raw): {config_data.get('tls_starttls', config_data.get('use_starttls', True))}")
     
-    # Verify password is present and not None
-    if 'password' not in config_data or config_data['password'] is None:
-        logger.error("❌ Password is missing or None in config_data")
-        raise ValueError("Password is required for SMTP configuration")
+    username = str(config_data.get('username', '') or '').strip()
+    password = config_data.get('password', '')
+    if password is None:
+        password = ''
+    password = str(password)
+    if bool(username) != bool(password.strip()):
+        if username:
+            raise ValueError("SMTP password is required when username is set")
+        raise ValueError("SMTP username is required when password is set")
+
+    use_auth = bool(username and password.strip())
     
     # Use from_email if provided, otherwise fall back to username
     # Special handling for providers that require specific sender emails
@@ -478,18 +544,27 @@ def get_msmtp_config(config_data):
         logger.error(f"❌ Provider {provider} requires a specific from_email but none was provided")
         raise ValueError(f"Provider {provider} requires a specific sender email address")
     
-    # For regular providers (like iCloud, Gmail, etc), it's fine to use username as from_email
+    # For regular providers, use explicit from email if provided.
     if not from_email:
-        from_email = config_data['username']
-        logger.debug(f"🔧 Using username as from_email: {from_email}")
+        if username:
+            from_email = username
+            logger.debug(f"🔧 Using username as from_email: {from_email}")
+        else:
+            raise ValueError("From email is required when SMTP username is blank")
     else:
         logger.debug(f"🔧 Using explicitly provided from_email: {from_email}")
+
+    if not from_email:
+        raise ValueError("From email is required when SMTP username is blank")
     
+    msmtp_domain = _extract_msmtp_domain(from_email, smtp_server)
+
     # Base configuration
     config_content = f"""
 # Configuration for msmtp
 defaults
-auth           on
+auth           {"on" if use_auth else "off"}
+domain         {msmtp_domain}
 """
 
     normalization = normalize_smtp_transport_security(
@@ -532,8 +607,10 @@ account        default
 host           {smtp_server}
 port           {smtp_port}
 from           {from_email}
-user           {config_data['username']}
-password       {config_data['password']}
+"""
+    if use_auth:
+        config_content += f"""user           {username}
+password       {password}
 """
     logger.debug(f"📝 Base msmtp config generated with server: {smtp_server}:{smtp_port}")
 
@@ -567,15 +644,49 @@ def test_email_config(config_data):
         logger.debug(f"📧 Test Configuration:")
         logger.debug(f"📧 Raw config data: {log_config}")
         
+        username = str(config_data.get('username') or '').strip()
+        password = config_data.get('password', '')
+        password_is_blank = password is None or str(password).strip() == ''
+
+        if username and password_is_blank:
+            config_id = config_data.get('id')
+            if not config_id:
+                return False, "SMTP password is required when username is set"
+            try:
+                mail_model = get_mail_config_model()
+                if not mail_model:
+                    return False, "Mail configuration model not available"
+                mail_query, _ = scoped_mail_query(mail_model, config_data.get('target_id'))
+                existing_config = mail_query.filter(mail_model.id == int(config_id)).first()
+                if existing_config and existing_config.password:
+                    logger.debug("🔑 Using existing password from configuration id=%s", config_id)
+                    decrypted_password = existing_config.password
+                    if decrypted_password is None:
+                        logger.error("❌ Stored password couldn't be decrypted. SECRET_KEY may have changed.")
+                        return False, "Stored password cannot be decrypted. Please enter a new password."
+                    config_data['password'] = decrypted_password
+                else:
+                    logger.error("❌ Existing mail configuration has no usable password id=%s", config_id)
+                    return False, "No password provided and no valid password stored. Please enter a password."
+            except Exception as de:
+                logger.error(f"❌ Failed to decrypt stored password: {str(de)}")
+                return False, "Stored password cannot be decrypted with the current SECRET_KEY. Please enter a new password."
+        elif username and not password_is_blank:
+            config_data['password'] = str(password)
+        elif not username and not password_is_blank:
+            return False, "SMTP username is required when a password is set"
+        else:
+            config_data['password'] = ''
+
         # Don't override from_email if it's explicitly provided
         # Only set it from username if it doesn't exist or is empty
         if 'from_email' not in config_data or not config_data['from_email']:
-            config_data['from_email'] = config_data.get('username', '')
+            config_data['from_email'] = username
             
-        config_data['from_name'] = config_data.get('username', '').split('@')[0] if '@' in config_data.get('username', '') else ''
+        config_data['from_name'] = username.split('@')[0] if '@' in username else ''
             
         # Ensure required fields are present
-        required_fields = ['smtp_server', 'smtp_port', 'username']
+        required_fields = ['smtp_server', 'smtp_port']
         for field in required_fields:
             if field not in config_data or not config_data[field]:
                 return False, f"Missing required field: {field}"
@@ -584,10 +695,11 @@ def test_email_config(config_data):
         if 'provider' not in config_data:
             config_data['provider'] = ''
             
-        # Get to_email if provided, otherwise use username as fallback
+        from_email = str(config_data.get('from_email') or '').strip()
+        # Get to_email if provided, otherwise use from_email, then username.
         to_email = config_data.get('to_email')
         if not to_email or to_email.strip() == '':
-            to_email = config_data['username']
+            to_email = from_email or username
         logger.debug(f"📧 To Email: {to_email}")
         
         # Validate to_email format
@@ -614,33 +726,9 @@ def test_email_config(config_data):
         logger.debug(f"📧 Provider: {config_data['provider']}")
         logger.debug(f"📧 SMTP Server: {config_data['smtp_server']}")
         logger.debug(f"📧 SMTP Port: {config_data['smtp_port']}")
-        logger.debug(f"📧 Username: {config_data['username']}")
-        
-        # If the password is not provided, use the saved one
-        if 'password' not in config_data or not config_data['password']:
-            try:
-                # Get the existing configuration from the database
-                mail_model = get_mail_config_model()
-                if not mail_model:
-                    return False, "Mail configuration model not available"
-                mail_query, _ = scoped_mail_query(mail_model, config_data.get('target_id'))
-                existing_config = mail_query.order_by(mail_model.is_default.desc(), mail_model.id.asc()).first()
-                if existing_config and existing_config.password:
-                    logger.debug("🔑 Using existing password from configuration")
-                    # Use the password property which automatically decrypts
-                    decrypted_password = existing_config.password
-                    if decrypted_password is None:
-                        logger.error("❌ Stored password couldn't be decrypted. SECRET_KEY may have changed.")
-                        return False, "Stored password cannot be decrypted. Please enter a new password."
-                    config_data['password'] = decrypted_password
-                else:
-                    logger.error("❌ No existing mail configuration found or password is None")
-                    return False, "No password provided and no valid password stored. Please enter a password."
-            except Exception as de:
-                # If it fails to decrypt the saved password, return an explicit error
-                logger.error(f"❌ Failed to decrypt stored password: {str(de)}")
-                return False, "Stored password cannot be decrypted with the current SECRET_KEY. Please enter a new password."
-        
+        logger.debug(f"📧 Username: {username}")
+        logger.debug(f"📧 From Email: {from_email}")
+
         # Generate msmtp configuration
         config_content = get_msmtp_config(config_data)
         
@@ -662,7 +750,7 @@ def test_email_config(config_data):
                     logger.debug(f"✅ Password is present and not empty (length: {len(config_data['password'])})")
                 sanitized_config = sanitized_config.replace(str(config_data['password']), '********')
             else:
-                logger.error("❌ No password key in config_data")
+                logger.debug("SMTP authentication disabled for this configuration")
             logger.debug(f"📄 Config file content:\n{sanitized_config}")
 
         # Create a temporary file for the email content
@@ -782,8 +870,10 @@ def save_mail_config(config_data):
         # Extract other fields
         smtp_server = config_data.get('smtp_server')
         smtp_port = config_data.get('smtp_port')
-        username = config_data.get('smtp_username') or config_data.get('username')
+        username = str(config_data.get('smtp_username') or config_data.get('username') or '').strip()
         password = config_data.get('smtp_password') or config_data.get('password')
+        password_text = '' if password is None else str(password)
+        password_is_blank = password is None or password_text.strip() == ''
         provider = config_data.get('provider')
         to_email = config_data.get('to_email')
         render_mode = normalize_render_mode(config_data.get('render_mode'))
@@ -799,9 +889,9 @@ def save_mail_config(config_data):
             logger.error("Required fields missing")
             return False, "SMTP server and port are required"
         
-        if not username:
-            logger.error("Username missing")
-            return False, "Username is required"
+        if not username and not password_is_blank:
+            logger.error("Username missing for authenticated SMTP configuration")
+            return False, "SMTP username is required when password is set"
         
         # Convert port to integer
         try:
@@ -858,22 +948,27 @@ def save_mail_config(config_data):
         # Update from_email if provided
         if from_email:
             config.from_email = from_email
+        elif username:
+            config.from_email = username
+        elif to_email:
+            config.from_email = to_email
         
-        # Only update password if it's provided and not the masked value
+        # Only update password if it's provided and not the masked value.
         if password and password != '********':
             try:
                 config.password = password
             except Exception as e:
                 logger.error(f"❌ Failed to encrypt password: {str(e)}")
                 return False, f"Error encrypting password: {str(e)}. Make sure SECRET_KEY is set correctly."
-        elif not config_id and not password:
-            # For new configurations, password is required
-            logger.error("Password required for new configuration")
-            return False, "Password is required for new configuration"
-        elif config_id and not password and config.password is None:
-            # For existing configuration where the saved password can't be decrypted
-            logger.error("❌ Existing password can't be decrypted. SECRET_KEY may have changed.")
-            return False, "Your existing password can't be decrypted. Please provide a new password."
+        elif username:
+            if not config_id:
+                logger.error("Password required for new authenticated configuration")
+                return False, "Password is required when username is set"
+            elif config.password is None:
+                logger.error("❌ Existing password can't be decrypted. SECRET_KEY may have changed.")
+                return False, "Your existing password can't be decrypted. Please provide a new password."
+        else:
+            config.password = None
         
         # Commit the changes
         db.session.commit()
@@ -1047,8 +1142,7 @@ class EmailNotifier:
         """Check if an event type should be notified"""
         try:
             NotificationSettings = get_notification_settings_model()
-            scoped_query, _ = scoped_notification_query(NotificationSettings, target_id)
-            setting = scoped_query.filter(NotificationSettings.event_type == event_type).first()
+            setting = ensure_notification_setting(NotificationSettings, event_type, target_id)
             return setting and setting.enabled
         except Exception as e:
             logger.error(f"Error checking notification settings: {e}")
@@ -1250,7 +1344,6 @@ class EmailNotifier:
             # Check SECRET_KEY status
             from core.mail.mail import SECRET_KEY
             logger.debug(f"SECRET_KEY status in send_notification: {'[SET]' if SECRET_KEY else '[MISSING]'}")
-            logger.debug(f"SECRET_KEY first bytes: {SECRET_KEY[:5] if SECRET_KEY else 'None'}")
             
             # Check that event_data is a dictionary
             if isinstance(event_data, dict):
@@ -1288,9 +1381,7 @@ class EmailNotifier:
 
             mail_query, _ = scoped_mail_query(mail_model, event_target_id)
                 
-            # Now safe to access query
-            notification_query, _ = scoped_notification_query(NotificationSettings, event_target_id)
-            notification_settings = notification_query.filter(NotificationSettings.event_type == normalized_event).first()
+            notification_settings = ensure_notification_setting(NotificationSettings, normalized_event, event_target_id)
             if not notification_settings:
                 logger.warning("No notification settings found")
                 return False, "No notification settings found"
@@ -1347,20 +1438,16 @@ class EmailNotifier:
 
             logger.debug(f"Using mail config: ID={mail_config.id}, provider={mail_config.provider}, server={mail_config.smtp_server}")
             logger.debug(f"Mail config has password set: {'Yes' if mail_config.password else 'No'}")
-            
-            # Check if the mail config has a valid password
-            if not mail_config.password:
-                logger.error("Mail config has no password set")
-                return False, "Mail configuration has no password set"
-            
-            # Try to access the password which will test decryption
-            try:
-                password_value = mail_config.password
-                logger.debug(f"Password access successful, length: {len(password_value) if password_value else 0}")
-            except Exception as pwd_err:
-                logger.error(f"Failed to access password (likely encryption issue): {str(pwd_err)}")
-                logger.error(f"Traceback: {traceback.format_exc()}")
-                return False, f"Failed to decrypt email password: {str(pwd_err)}"
+
+            password_value = ''
+            if getattr(mail_config, 'username', None):
+                try:
+                    password_value = mail_config.password
+                    logger.debug(f"Password access successful, length: {len(password_value) if password_value else 0}")
+                except Exception as pwd_err:
+                    logger.error(f"Failed to access password (likely encryption issue): {str(pwd_err)}")
+                    logger.error(f"Traceback: {traceback.format_exc()}")
+                    return False, f"Failed to decrypt email password: {str(pwd_err)}"
 
             notification_card = data_for_template.get('notification_card')
             if not isinstance(notification_card, dict):
@@ -1410,7 +1497,7 @@ class EmailNotifier:
                     'host': data_for_template['smtp_server'],
                     'port': data_for_template['smtp_port'],
                     'username': data_for_template.get('username', data_for_template['from_email']),
-                    'password': mail_config.password,  # Still use the password from the database
+                    'password': password_value,
                     'use_tls': data_for_template.get('tls', True),
                     'from_addr': data_for_template['from_email'],
                     'provider': data_for_template.get('provider', ''),
@@ -1422,7 +1509,7 @@ class EmailNotifier:
                     'smtp_server': mail_config.smtp_server,
                     'smtp_port': mail_config.smtp_port,
                     'username': mail_config.username,
-                    'password': mail_config.password,
+                    'password': password_value,
                     'from_email': mail_config.from_email,  # Use from_email property instead of username
                     'provider': mail_config.provider,
                     'tls': mail_config.tls,
@@ -1517,8 +1604,7 @@ def handle_notification(event_data):
         mail_query, _ = scoped_mail_query(MailConfig, event_target_id)
         
         # Check if notifications are enabled for this event
-        notification_query, _ = scoped_notification_query(NotificationSettings, event_target_id)
-        notify_setting = notification_query.filter(NotificationSettings.event_type == event_type).first()
+        notify_setting = ensure_notification_setting(NotificationSettings, event_type, event_target_id)
         if not notify_setting or not notify_setting.enabled:
             logger.info(f"Notifications disabled for event type: {event_type}")
             return
@@ -2214,8 +2300,24 @@ def interpret_email_error(error_message):
     if "protocol error" in error_lower:
         return "SMTP Protocol Error"
     
-    # Generic msmtp errors from temp files - often encryption related
+    # Generic msmtp errors from temp files - surface useful stderr/log tail
     if "msmtp:" in error_lower and "tmp" in error_lower and "could not send mail" in error_lower:
+        def _tail_non_empty_lines(text, limit=3):
+            lines = [line.strip() for line in str(text or '').splitlines() if line.strip()]
+            return lines[-limit:]
+
+        detail_lines = _tail_non_empty_lines(error_message)
+        if not detail_lines:
+            msmtp_log = os.path.expanduser("~/.msmtp.log")
+            if os.path.exists(msmtp_log):
+                try:
+                    with open(msmtp_log, "r", encoding="utf-8", errors="ignore") as log_file:
+                        detail_lines = _tail_non_empty_lines(log_file.read())
+                except Exception as log_error:
+                    logger.debug(f"Could not read msmtp log for error details: {log_error}")
+
+        if detail_lines:
+            return f"Configuration Error: {' | '.join(detail_lines)}"
         return "Configuration Error"
     
     # If no specific match, return a generic but improved message

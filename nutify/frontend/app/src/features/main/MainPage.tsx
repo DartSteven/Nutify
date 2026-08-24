@@ -11,6 +11,7 @@ import { getAllUpsData } from '../../lib/api/ups'
 import { getVariableConfig } from '../../lib/api/settings'
 import { useCacheWebSocketManager } from '../../lib/realtime/cacheWebSocketManager'
 import { useAppStore } from '../../store/appStore'
+import { PageHeader } from '../../components/PageHeader'
 import { loadMainPanelData } from './mainPanelData'
 import { MainRealtimeChart } from './MainRealtimeChart'
 import {
@@ -110,6 +111,12 @@ export function MainPage() {
 
   return (
     <section className="dashboard-section main_dashboard_page">
+      <PageHeader
+        kicker="Live operations"
+        title="Power overview"
+        subtitle="Realtime UPS health, electrical load, active alerts, and recent operating events."
+        nextOnly
+      />
       <div className="stats_grid">
         <article className="stat_card">
           <div className="stat-icon">

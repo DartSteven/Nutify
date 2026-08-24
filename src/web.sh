@@ -53,13 +53,31 @@ start_web_app() {
         sleep 2
     fi
     
+    # Run the web-facing process without root privileges. The root supervisor
+    # only prepares mounted files and monitors the unprivileged child.
+    local web_user="${NUTIFY_WEB_USER:-nut}"
+    local web_command=(python3 app.py)
+    if [ "$(id -u)" -eq 0 ]; then
+        if ! id "$web_user" >/dev/null 2>&1; then
+            startup_log "ERROR: Web application user does not exist: $web_user"
+            return 1
+        fi
+        if ! command -v gosu >/dev/null 2>&1; then
+            startup_log "ERROR: gosu is required to drop web application privileges"
+            return 1
+        fi
+        web_command=(gosu "$web_user" python3 app.py)
+    else
+        web_user="$(id -un)"
+    fi
+
     # Start the application
     if [ "$ENABLE_LOG_STARTUP" = "Y" ]; then
-        startup_log "Starting web application..."
-        cd "$APP_DIR" && python3 app.py &
+        startup_log "Starting web application as $web_user..."
+        cd "$APP_DIR" && "${web_command[@]}" &
     else
         # No echo message here, start silently
-        cd "$APP_DIR" && python3 app.py > /dev/null 2>&1 &
+        cd "$APP_DIR" && "${web_command[@]}" > /dev/null 2>&1 &
     fi
     
     APP_PID=$!

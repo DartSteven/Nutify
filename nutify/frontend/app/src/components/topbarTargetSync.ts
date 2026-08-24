@@ -25,26 +25,24 @@ export function useTopbarTargetSync({
   setFleetStatusByTarget,
 }: UseTopbarTargetSyncInput) {
   useEffect(() => {
-    if (monitoringProfile !== 'multi') {
-      return
-    }
-
     let mounted = true
     let refreshTimer: number | null = null
+    const normalizedProfile = String(monitoringProfile || 'single').trim().toLowerCase()
+    const isMultiProfile = normalizedProfile === 'multi'
 
     const refreshTargets = async (preserveCurrent = true) => {
       try {
         const [targetRows, state, overviewRows] = await Promise.all([
           getTargets(),
           getMultiNutState(),
-          getOverview(24).catch(() => []),
+          isMultiProfile ? getOverview(24).catch(() => []) : Promise.resolve([]),
         ])
         if (!mounted) {
           return
         }
         setTargets(targetRows)
         const statusPatch: Record<number, string> = {}
-        if (Array.isArray(overviewRows)) {
+        if (isMultiProfile && Array.isArray(overviewRows)) {
           for (const item of overviewRows) {
             const row = asRecord(item)
             const target = asRecord(row.target)

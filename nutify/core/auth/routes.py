@@ -17,9 +17,11 @@ from . import (
     require_admin
 )
 from .security import rate_limit
+from .oidc import is_auto_redirect
 from core.react_frontend import serve_react_index
 from datetime import datetime
 import pytz
+import hmac
 from core.logger import web_logger as logger
 
 # Create blueprint
@@ -38,6 +40,10 @@ def login():
     # If already authenticated, redirect to main page
     if is_authenticated():
         return redirect(url_for('index'))
+
+    local_requested = request.args.get('local', '').strip().lower() in {'1', 'true', 'yes', 'on'}
+    if request.method == 'GET' and is_auto_redirect() and not local_requested:
+        return redirect(url_for('auth.oidc_login'))
     
     if request.method == 'POST':
         username = request.form.get('username', '').strip()
@@ -167,6 +173,10 @@ def admin():
                 return serve_react_index()
                 
             user = LoginAuth.get_active_user(current_user['username'])
+            from .oidc_identity import is_oidc_user
+            if user and is_oidc_user(user.id):
+                flash('OIDC-only accounts do not support local passwords', 'error')
+                return serve_react_index()
             if not user or not user.check_password(current_password):
                 flash('Current password is incorrect', 'error')
                 return serve_react_index()
@@ -199,6 +209,10 @@ def admin():
                 return serve_react_index()
                 
             user = LoginAuth.get_active_user(current_user['username'])
+            from .oidc_identity import is_oidc_user
+            if user and is_oidc_user(user.id):
+                flash('OIDC account usernames are controlled by the provider', 'error')
+                return serve_react_index()
             if not user or not user.check_password(password):
                 flash('Password is incorrect', 'error')
                 return serve_react_index()
@@ -305,6 +319,65 @@ def api_login():
     else:
         return jsonify({'error': 'Invalid username or password'}), 401
 
+
+@auth_bp.route('/api/forgot-password', methods=['POST'])
+@rate_limit('5 per hour', methods=['POST'])
+def api_forgot_password():
+    """Recovery endpoint for admin lockout using SECRET_KEY proof."""
+    if is_auth_disabled():
+        return jsonify({'error': 'Authentication is disabled'}), 403
+
+    data = request.get_json()
+    if not data:
+        return jsonify({'error': 'Invalid request data'}), 400
+
+    username = str(data.get('username', '')).strip()
+    new_password = str(data.get('new_password', ''))
+    confirm_password = str(data.get('confirm_password', ''))
+    recovery_key = str(data.get('recovery_key', ''))
+
+    if not username or not new_password or not confirm_password or not recovery_key:
+        return jsonify({'error': 'Username, new password, confirmation and recovery key are required'}), 400
+
+    if new_password != confirm_password:
+        return jsonify({'error': 'Passwords do not match'}), 400
+
+    if len(new_password) < 6:
+        return jsonify({'error': 'New password must be at least 6 characters long'}), 400
+
+    configured_secret = str(current_app.config.get('SECRET_KEY', '') or '')
+    if not configured_secret:
+        return jsonify({'error': 'Recovery is unavailable: SECRET_KEY not configured'}), 500
+
+    if not hmac.compare_digest(recovery_key, configured_secret):
+        logger.warning("🔐 Failed admin recovery attempt for user: %s", username)
+        return jsonify({'error': 'Invalid recovery key'}), 403
+
+    try:
+        from . import LoginAuth
+        if LoginAuth is None:
+            return jsonify({'error': 'Authentication system not initialized'}), 500
+
+        user = LoginAuth.get_active_user(username)
+        if not user:
+            return jsonify({'error': 'User not found'}), 404
+
+        from .oidc_identity import is_oidc_user
+        if is_oidc_user(user.id):
+            return jsonify({'error': 'OIDC-only accounts do not support password recovery'}), 400
+
+        if not getattr(user, 'is_admin', False) and getattr(user, 'id', None) != 1:
+            return jsonify({'error': 'Recovery is restricted to administrator accounts'}), 403
+
+        if LoginAuth.update_user_password(username, new_password):
+            logger.info("🔐 Admin password recovered for user: %s", username)
+            return jsonify({'success': True, 'message': 'Password reset successful. You can now login.'})
+
+        return jsonify({'error': 'Failed to reset password'}), 500
+    except Exception as e:
+        logger.error(f"🔐 Error during admin recovery: {str(e)}")
+        return jsonify({'error': 'An error occurred while resetting password'}), 500
+
 @auth_bp.route('/api/logout', methods=['POST'])
 def api_logout():
     """API endpoint for logout"""
@@ -349,6 +422,10 @@ def api_change_password():
         
         current_user = get_current_user()
         user = LoginAuth.get_active_user(current_user['username'])
+
+        from .oidc_identity import is_oidc_user
+        if user and is_oidc_user(user.id):
+            return jsonify({'error': 'OIDC-only accounts do not support local passwords'}), 400
         
         if not user or not user.check_password(current_password):
             return jsonify({'error': 'Current password is incorrect'}), 400
@@ -391,6 +468,10 @@ def api_change_username():
         
         current_user = get_current_user()
         user = LoginAuth.get_active_user(current_user['username'])
+
+        from .oidc_identity import is_oidc_user
+        if user and is_oidc_user(user.id):
+            return jsonify({'error': 'OIDC account usernames are controlled by the provider'}), 400
         
         if not user or not user.check_password(password):
             return jsonify({'error': 'Password is incorrect'}), 400
@@ -434,11 +515,13 @@ def api_admin_get_users():
         users_data = []
         
         for user in users:
+            from .oidc_identity import auth_source
             users_data.append({
                 'id': user.id,
                 'username': user.username,
                 'role': getattr(user, 'role', 'administrator' if user.id == 1 else 'user'),
-                'is_admin': user.id == 1,  # First user is admin
+                'is_admin': bool(getattr(user, 'is_admin', False) or getattr(user, 'role', '') == 'administrator'),
+                'auth_source': auth_source(user.id),
                 'last_login': user.last_login.isoformat() if user.last_login else None,
                 'created_at': user.created_at.isoformat() if user.created_at else None
             })
@@ -530,6 +613,10 @@ def api_admin_update_user_password(user_id):
         user = LoginAuth.query.filter_by(id=user_id, is_active=True).first()
         if not user:
             return jsonify({'error': 'User not found'}), 404
+
+        from .oidc_identity import is_oidc_user
+        if is_oidc_user(user.id):
+            return jsonify({'error': 'OIDC-only accounts do not support local passwords'}), 400
         
         # Update password
         if LoginAuth.update_user_password(user.username, new_password):
@@ -567,6 +654,10 @@ def api_admin_update_user_role(user_id):
         user = LoginAuth.query.filter_by(id=user_id, is_active=True).first()
         if not user:
             return jsonify({'error': 'User not found'}), 404
+
+        from .oidc_identity import is_oidc_user
+        if is_oidc_user(user.id):
+            return jsonify({'error': 'OIDC account roles are controlled by provider groups'}), 400
         
         # Don't allow changing role of user ID 1 (main admin)
         if user_id == 1:
@@ -610,6 +701,9 @@ def api_admin_delete_user(user_id):
         user = LoginAuth.query.filter_by(id=user_id, is_active=True).first()
         if not user:
             return jsonify({'error': 'User not found'}), 404
+
+        from .oidc_identity import delete_oidc_identity
+        delete_oidc_identity(user.id)
         
         # Permanently delete user
         if LoginAuth.delete_user(user.username):
@@ -775,6 +869,11 @@ def api_admin_update_user_options_tabs(user_id):
         db.session.rollback()
         logger.error(f"🔐 Error updating user options tabs: {str(e)}")
         return jsonify({'error': 'An error occurred while updating user options tabs'}), 500
+
+from .oidc_routes import register_oidc_routes
+
+register_oidc_routes(auth_bp)
+
 
 def register_auth_routes(app):
     """Register authentication routes with the Flask app"""

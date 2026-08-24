@@ -4,6 +4,8 @@
  * Frontend module used by Nutify React UI flows and state management.
  */
 
+import { SnmpFields } from '../components/SnmpFields'
+
 export function SingleMonitorStandalone() {
   return (
     <div id="config-standalone" className="mode-config hidden">
@@ -54,14 +56,14 @@ export function SingleMonitorStandalone() {
               </div>
 
               <div className="form-group">
-                <label htmlFor="ups_port">Port:</label>
+                <label id="ups_port_label" htmlFor="ups_port">Port/Device:</label>
                 <div className="input-with-button">
                   <input type="text" id="ups_port" name="ups_port" defaultValue="auto" required />
                   <button type="button" id="scan-standalone" className="scan-button hidden">
                     <i className="fas fa-search" /> Scan
                   </button>
                 </div>
-                <div className="form-help">Usually `auto` for USB, or a specific port like `/dev/ttyS0` for serial.</div>
+                <div id="ups_port_help" className="form-help">Use `auto` for USB, or enter the local device path required by the selected driver.</div>
                 <div id="standalone-usb-port-picker" className="wizard-usb-port-picker hidden">
                   <label htmlFor="standalone_detected_usb_port">Detected USB Port:</label>
                   <div className="input-with-button">
@@ -81,9 +83,9 @@ export function SingleMonitorStandalone() {
 
             <div className="form-grid-2">
               <div className="form-group">
-                <label htmlFor="server_address">Server Address:</label>
+                <label htmlFor="server_address">Local NUT Server Address:</label>
                 <input type="text" id="server_address" name="server_address" defaultValue="127.0.0.1" />
-                <div className="form-help">IP address or hostname of this server (default: `127.0.0.1`).</div>
+                <div className="form-help">Address of Nutify's local NUT service, not the UPS network address. Usually `127.0.0.1`.</div>
               </div>
               <div id="standalone-primary-name-anchor">
                 <div id="standalone-primary-name-block" className="form-group">
@@ -100,21 +102,7 @@ export function SingleMonitorStandalone() {
               </div>
             </div>
 
-            <div id="standalone-snmp-fields" className="form-grid-2 hidden">
-              <div className="form-group">
-                <label htmlFor="snmp_community">SNMP Community:</label>
-                <input type="text" id="snmp_community" name="snmp_community" defaultValue="public" placeholder="public" />
-                <div className="form-help">Required for `snmp-ups`.</div>
-              </div>
-              <div className="form-group">
-                <label htmlFor="snmp_version">SNMP Version:</label>
-                <select id="snmp_version" name="snmp_version" defaultValue="v1">
-                  <option value="v1">v1</option>
-                  <option value="v2c">v2c</option>
-                  <option value="v3">v3</option>
-                </select>
-              </div>
-            </div>
+            <SnmpFields containerId="standalone-snmp-fields" />
             <input type="hidden" id="ups_desc" name="ups_desc" defaultValue="Local UPS" />
           </div>
 

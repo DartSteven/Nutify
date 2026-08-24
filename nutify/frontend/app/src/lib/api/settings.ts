@@ -30,20 +30,26 @@ export type OperationSettings = {
   scope_target_id: number | null
 }
 
+function parseNullableNumber(value: unknown): number | null {
+  if (value === null || value === undefined || value === '') {
+    return null
+  }
+  const parsed = Number(value)
+  return Number.isFinite(parsed) ? parsed : null
+}
+
 export async function getVariableConfig(targetId: number | null): Promise<VariableConfig> {
   const payload = await requestSettingsJson('/api/settings/variables', {}, targetId)
   const data = (payload.data ?? {}) as JsonRecord
   return {
     timezone: typeof data.timezone === 'string' ? data.timezone : undefined,
-    ups_realpower_nominal: Number.isFinite(Number(data.ups_realpower_nominal))
-      ? Number(data.ups_realpower_nominal)
-      : null,
+    ups_realpower_nominal: parseNullableNumber(data.ups_realpower_nominal),
     currency: String(data.currency ?? 'EUR'),
     price_per_kwh: Number(data.price_per_kwh ?? 0),
     co2_factor: Number(data.co2_factor ?? 0),
     polling_interval: Number.isFinite(Number(data.polling_interval)) ? Number(data.polling_interval) : undefined,
-    target_id: Number.isFinite(Number(data.target_id)) ? Number(data.target_id) : null,
-    scope_target_id: Number.isFinite(Number(data.scope_target_id)) ? Number(data.scope_target_id) : null,
+    target_id: parseNullableNumber(data.target_id),
+    scope_target_id: parseNullableNumber(data.scope_target_id),
   }
 }
 
@@ -79,8 +85,8 @@ export async function getOperationSettings(targetId: number | null): Promise<Ope
     energy_formula: String(data.energy_formula ?? 'power_w * delta_hours'),
     cost_formula: String(data.cost_formula ?? '(energy_wh / 1000.0) * price_per_kwh'),
     co2_formula: String(data.co2_formula ?? '(energy_wh / 1000.0) * co2_factor'),
-    target_id: Number.isFinite(Number(data.target_id)) ? Number(data.target_id) : null,
-    scope_target_id: Number.isFinite(Number(data.scope_target_id)) ? Number(data.scope_target_id) : null,
+    target_id: parseNullableNumber(data.target_id),
+    scope_target_id: parseNullableNumber(data.scope_target_id),
   }
 }
 
@@ -169,6 +175,51 @@ export function getLogsDownloadUrl(params: LogsQuery = {}) {
 
 export async function getSystemInfo() {
   return requestSettingsJson('/api/system/info')
+}
+
+export type ScriptActionConfig = {
+  id: number
+  target_id?: number | null
+  name: string
+  enabled: boolean
+  trigger_event: 'ONBATT' | 'LOWBATT'
+  battery_threshold: number
+  cooldown_seconds: number
+  script_body: string
+  last_executed_at?: string | null
+  last_exit_code?: number | null
+  last_output?: string | null
+  condition_active?: boolean
+}
+
+export async function getScriptActions(targetId: number | null) {
+  return requestSettingsJson('/api/options/script-actions', {}, targetId)
+}
+
+export async function createScriptAction(input: Partial<ScriptActionConfig>, targetId: number | null) {
+  return requestSettingsJson('/api/options/script-actions', {
+    method: 'POST',
+    body: JSON.stringify(input),
+  }, targetId)
+}
+
+export async function updateScriptAction(actionId: number, input: Partial<ScriptActionConfig>, targetId: number | null) {
+  return requestSettingsJson(`/api/options/script-actions/${actionId}`, {
+    method: 'PUT',
+    body: JSON.stringify(input),
+  }, targetId)
+}
+
+export async function deleteScriptAction(actionId: number, targetId: number | null) {
+  return requestSettingsJson(`/api/options/script-actions/${actionId}`, {
+    method: 'DELETE',
+  }, targetId)
+}
+
+export async function testScriptAction(actionId: number, targetId: number | null) {
+  return requestSettingsJson(`/api/options/script-actions/${actionId}/test`, {
+    method: 'POST',
+  }, targetId)
 }
 
 export async function getAboutImage() {

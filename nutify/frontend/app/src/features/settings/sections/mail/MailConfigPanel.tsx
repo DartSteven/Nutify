@@ -57,7 +57,8 @@ export function MailConfigPanel(props: MailConfigPanelProps) {
     onToggleConfigEnabled,
   } = props
 
-  const showFromEmail = Boolean(form.provider && providers[form.provider]?.requires_sender_email)
+  const showFromEmail = true
+  const requiresProviderFromEmail = Boolean(form.provider && providers[form.provider]?.requires_sender_email)
   const providerNotes =
     form.provider && providers[form.provider]
       ? providers[form.provider].notes || providers[form.provider].note || ''
@@ -179,7 +180,6 @@ export function MailConfigPanel(props: MailConfigPanelProps) {
                 type="text"
                 id="smtp_username"
                 name="smtp_username"
-                required
                 value={form.username}
                 onChange={(event) => onFieldChange('username', event.target.value)}
               />
@@ -220,14 +220,14 @@ export function MailConfigPanel(props: MailConfigPanelProps) {
             <div className="options_mail_form_group" style={{ display: showFromEmail ? 'block' : 'none' }}>
               <label htmlFor="from_email">
                 <i className="fas fa-envelope" />
-                <span id="from_email_label">{showFromEmail ? 'From Email (Required)' : 'From Email'}</span>
+                <span id="from_email_label">{requiresProviderFromEmail ? 'From Email (Required)' : 'From Email'}</span>
               </label>
               <input
                 type="email"
                 id="from_email"
                 name="from_email"
                 placeholder="Sender email address"
-                required={showFromEmail}
+                required={requiresProviderFromEmail}
                 value={form.fromEmail}
                 onChange={(event) => onFieldChange('fromEmail', event.target.value)}
               />

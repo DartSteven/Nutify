@@ -150,9 +150,16 @@ export function registerStepFlowRuntime(ctx) {
         ctx.actions.showAlert('Please enter a port for the UPS connection.', 'error')
         return false
       }
-      if (ctx.actions.isSnmpDriver(upsDriver) && !String(elements.standaloneSnmpCommunity?.value || '').trim()) {
-        ctx.actions.showAlert('SNMP community is required when using snmp-ups.', 'error')
+      if (ctx.actions.inferLocalConnectionTypeFromDriver(upsDriver) === 'local_network_driver' && upsPort.toLowerCase() === 'auto') {
+        ctx.actions.showAlert('Enter the UPS hostname or IP address. Network drivers cannot use auto.', 'error')
         return false
+      }
+      if (ctx.actions.isSnmpDriver(upsDriver)) {
+        const snmpError = ctx.actions.validateSnmpSettings('')
+        if (snmpError) {
+          ctx.actions.showAlert(snmpError, 'error')
+          return false
+        }
       }
     }
     if (autoRadio.checked) {
@@ -161,9 +168,12 @@ export function registerStepFlowRuntime(ctx) {
         ctx.actions.showAlert('Select one row in "Detected UPS Devices", or switch to Manual Configuration.', 'error')
         return false
       }
-      if (ctx.actions.isSnmpDriver(upsDriver) && !String(elements.standaloneSnmpCommunity?.value || '').trim()) {
-        ctx.actions.showAlert('SNMP community is required when using snmp-ups.', 'error')
-        return false
+      if (ctx.actions.isSnmpDriver(upsDriver)) {
+        const snmpError = ctx.actions.validateSnmpSettings('')
+        if (snmpError) {
+          ctx.actions.showAlert(snmpError, 'error')
+          return false
+        }
       }
     }
     return true
@@ -199,6 +209,10 @@ export function registerStepFlowRuntime(ctx) {
         ctx.actions.showAlert('Please enter a port for the UPS connection.', 'error')
         return false
       }
+      if (ctx.actions.inferLocalConnectionTypeFromDriver(upsDriver) === 'local_network_driver' && upsPort.toLowerCase() === 'auto') {
+        ctx.actions.showAlert('Enter the UPS hostname or IP address. Network drivers cannot use auto.', 'error')
+        return false
+      }
       if (!adminUser) {
         ctx.actions.showAlert('Please enter a NUT admin username.', 'error')
         return false
@@ -207,9 +221,12 @@ export function registerStepFlowRuntime(ctx) {
         ctx.actions.showAlert('Please enter a NUT admin password.', 'error')
         return false
       }
-      if (ctx.actions.isSnmpDriver(upsDriver) && !String(elements.netserverSnmpCommunity?.value || '').trim()) {
-        ctx.actions.showAlert('SNMP community is required when using snmp-ups.', 'error')
-        return false
+      if (ctx.actions.isSnmpDriver(upsDriver)) {
+        const snmpError = ctx.actions.validateSnmpSettings('server_')
+        if (snmpError) {
+          ctx.actions.showAlert(snmpError, 'error')
+          return false
+        }
       }
     }
     if (autoRadio.checked) {
@@ -218,9 +235,12 @@ export function registerStepFlowRuntime(ctx) {
         ctx.actions.showAlert('Select one row in "Detected UPS Devices", or switch to Manual Configuration.', 'error')
         return false
       }
-      if (ctx.actions.isSnmpDriver(upsDriver) && !String(elements.netserverSnmpCommunity?.value || '').trim()) {
-        ctx.actions.showAlert('SNMP community is required when using snmp-ups.', 'error')
-        return false
+      if (ctx.actions.isSnmpDriver(upsDriver)) {
+        const snmpError = ctx.actions.validateSnmpSettings('server_')
+        if (snmpError) {
+          ctx.actions.showAlert(snmpError, 'error')
+          return false
+        }
       }
     }
     return true

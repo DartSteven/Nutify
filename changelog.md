@@ -1,5 +1,68 @@
 # Nutify Changelog
 
+## Unreleased
+
+<!-- Add verified release notes here before preparing a new version. -->
+
+## Version 0.3.0 (Public Testing, 23/08/2026)
+
+### NUT, targets, and hardware
+
+* Fixed Wizard validation accepting the transient NUT `WAIT` state as success. Single, Multi, local, remote, and mixed final tests now wait for a ready `ups.status`; nominal-power prompts use structured live data and no longer report `ups.realpower.nominal` as missing before driver initialization completes.
+* Updated Network UPS Tools to `2.8.5`, including the upstream Arduino HID mappings used by devices such as the UGREEN US3000.
+* Added Raspberry Pi 3 support through a dedicated `linux/arm/v7` image tag for 32-bit operating systems. Pi 3 and Pi 4 ARMv7 images share the same compatible build. ([#147](https://github.com/DartSteven/Nutify/issues/147))
+* Added complete SNMPv3 setup support, including security level, username, authentication protocol/password, and privacy protocol/password. Network drivers require an explicit UPS hostname or IP address in `port`; the wizard separates the UPS endpoint from the local NUT server, rejects `auto` for SNMP, and blocks invalid preview, test, and save requests. Docker always activates Linux NUT paths while direct macOS development keeps Homebrew paths. ([#157](https://github.com/DartSteven/Nutify/issues/157))
+* Fixed target editing when nominal power is unset and moved Test/Save feedback into the target editor. ([#151](https://github.com/DartSteven/Nutify/issues/151))
+* Polling interval and metadata changes no longer require a new connection test unless connection identity changed. ([#152](https://github.com/DartSteven/Nutify/issues/152))
+
+### Events and notifications
+
+* Fixed notification settings routes so explicit `target_id` selection is honored consistently by retrieval, single-event updates, batch updates, and email-config lookups. Single-profile dispatch continues to use canonical global scope. ([#166](https://github.com/DartSteven/Nutify/pull/166))
+* Added target-scoped script actions for UPS events and battery thresholds. Conditions are evaluated after every successful poll, execute once while active, rearm after recovery, run outside the polling thread, use a bounded timeout, and do not inherit application secrets. ([#137](https://github.com/DartSteven/Nutify/issues/137))
+* Fixed single-profile notification dispatch so Event Matrix routes work without switching to Multi Monitor.
+* Made `ups_opt_notification` the only Event Matrix routing source. Webhook provider records now contain transport settings only, preventing duplicate/conflicting webhook configuration. ([#136](https://github.com/DartSteven/Nutify/issues/136))
+* Fixed saved webhook tests and real event dispatch with encrypted Bearer tokens while keeping API responses masked. ([#154](https://github.com/DartSteven/Nutify/issues/154), [#162](https://github.com/DartSteven/Nutify/issues/162))
+* Added auth-less SMTP relay support. Blank username/password now emit `auth off`; sender address is independent from username; incomplete credential pairs fail closed. No-auth configs remain visible in provider, Event Matrix, and report selectors. ([#141](https://github.com/DartSteven/Nutify/issues/141), [#164](https://github.com/DartSteven/Nutify/issues/164))
+* Fixed missing target-aware mail routing rows, stable event subjects, UTF-8 multipart MIME output, and duplicate `MIME-Version` headers. ([#132](https://github.com/DartSteven/Nutify/issues/132))
+* Added one canonical notification card shared by Mail, Ntfy, Telegram, and Webhook. Target metrics and separate Input/Output values now render consistently in text and graphic modes. ([#129](https://github.com/DartSteven/Nutify/issues/129))
+* Fixed event callback argument-order handling and added live-state validation for direct NUT power callbacks.
+* Added per-target communication-failure debounce and duplicate-event suppression. A transient query failure no longer creates false `COMMBAD`, `COMMOK`, `ONBATT`, or `LOWBATT` events, and low-charge fallback applies only while NUT explicitly reports battery operation. ([#158](https://github.com/DartSteven/Nutify/issues/158), [#159](https://github.com/DartSteven/Nutify/issues/159))
+
+### Interface and appearance
+
+* Added an appearance controller with independent interface skin (`Classic` or opt-in `Next`) and color mode (`Light` or `Dark`). Classic remains the default, Next styles remain isolated, hero surfaces use dedicated Light/Dark contrast tokens, and login controls retain correct contrast on the light login surface.
+* Kept the first-run Wizard permanently on its original Classic Light surface. Saved dashboard skin/theme preferences are temporarily isolated during setup and restored when leaving it, preventing dark cards, labels, and inputs from leaking into the Wizard.
+
+### Authentication and deployment
+
+* Added secure generic OpenID Connect SSO using Authorization Code flow with PKCE S256, state, nonce, exact issuer validation, matching ID-token/UserInfo subjects, explicit group authorization, and immutable `issuer + subject` identity binding. Username/email collisions fail closed; OIDC-only accounts cannot gain local passwords or local role overrides; local administrator login remains available. ([#167](https://github.com/DartSteven/Nutify/pull/167))
+* Added **System -> Authentication**, where administrators can configure database-managed OIDC, validate discovery/JWKS, test the complete browser flow, and enable SSO without editing `.env`. Secrets are encrypted and masked; activation is blocked until verification succeeds.
+* Added a dual-method login chooser, emergency `/auth/login?local=1` access, masked read-only environment mode, and optional provider-advertised Dynamic Client Registration without persisting its one-time access token.
+* Added fully documented Compose profiles: a simple secure default with local login and guided SSO, plus a separate fail-closed `docker-compose.oidc.yaml` override for environment-managed OIDC deployments.
+* Preserved Raspberry Pi 3/4 ARMv7 builds by adding the `libffi` build/runtime dependencies required by the OIDC cryptography stack. A complete ARMv7 Docker image build and runtime smoke test passed.
+* Restored USB HID discovery and driver access in the secure base Compose profile without restoring privileged mode or the complete host `/dev` tree. Access is limited to Linux USB character devices (major 189), udev metadata is read-only, runtime USB groups are detected dynamically, and host device ownership/modes are never changed. The hardware override remains only for stable serial or non-USB paths.
+* Added a verified release pipeline with backend, frontend lint/build, and Compose checks; immutable version tags; atomic `main` + tag publication; GitHub Releases; deployment bundles; SHA-256 checksums; Docker image manifests; resumable interrupted releases; and CI for every push and pull request. Public Testing and Release Candidate builds are published as GitHub pre-releases; Stable builds become the latest release.
+* Updated vulnerable frontend transitive dependencies and added a high/critical npm audit release gate. User-controlled target names and locations are HTML-escaped before ECharts globe/map tooltip rendering.
+* Added rate-limited admin password recovery using the runtime `SECRET_KEY`; recovery remains restricted to administrator accounts. ([#135](https://github.com/DartSteven/Nutify/issues/135))
+* Replaced the default privileged Compose configuration with a least-privilege profile: no complete host `/dev`, `SYS_ADMIN`, `SYS_RAWIO`, or `MKNOD`. USB HID access is constrained to Linux USB major 189; direct serial hardware is available through the explicit `docker-compose.hardware.yaml` override, independently from Single/Multi monitoring profile selection. ([#156](https://github.com/DartSteven/Nutify/issues/156))
+* Required `SECRET_KEY` through an ignored `.env`, removed secret fragments from startup logging, and excluded runtime databases, logs, and generated configuration from Docker build context.
+* Renamed the user-facing Werkzeug logging option to `HTTP Access Logs`. ([#149](https://github.com/DartSteven/Nutify/issues/149))
+
+### Reports, charts, and performance
+
+* Fixed runaway browser CPU and memory usage caused by a single-profile topbar render loop. Realtime charts keep smooth 24 FPS scrolling while avoiding nested redraws, limiting canvas resolution, matching data refresh to the polling interval, and pausing continuous rendering in hidden tabs.
+* Added rolling `Last 7 Days`, `Last 30 Days`, and `Last 12 Months` presets to dashboard charts, manual reports, and scheduled reports. Multi-day axes and CSV exports retain date and time. ([#133](https://github.com/DartSteven/Nutify/issues/133))
+* Fixed long-range Energy performance by using materialized rollups and refreshing current hour/day/month/year parents whenever a minute is stored. ([#150](https://github.com/DartSteven/Nutify/issues/150), [#159](https://github.com/DartSteven/Nutify/issues/159))
+* Added dynamic discovery and historical graphing for arbitrary `outlet*.realpower` NUT variables. ([#145](https://github.com/DartSteven/Nutify/issues/145))
+* Fixed chart legends, labels, axes, and titles in light mode with shared live theme colors. ([#134](https://github.com/DartSteven/Nutify/issues/134))
+* Added authenticated HTTP snapshot fallback for topbar telemetry when Socket.IO is unavailable through a reverse proxy. Additional exact origins can be configured with `SOCKETIO_ALLOWED_ORIGINS`; wildcards are rejected. ([#129](https://github.com/DartSteven/Nutify/issues/129))
+
+## Version 0.2.2 (29/04/2026)
+
+* Updated NUT to 2.8.5.
+* Fixed Ntfy notifications, SMTP blank credentials, webhooks, mail notification settings, and light-mode chart text.
+* Added event script execution, administrator password recovery, and report date presets.
+
 ## Version 0.2.0 (2026 - Internal Testing)
 
 * **Frontend Migration To React SPA**

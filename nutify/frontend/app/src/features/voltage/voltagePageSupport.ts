@@ -4,6 +4,8 @@
  * Frontend module used by Nutify React UI flows and state management.
  */
 
+import { formatChartAxisTimestamp } from '../../lib/utils/chartDateTime'
+
 export type Point = {
   timestamp: number
   value: number
@@ -61,31 +63,12 @@ export function notifyRealtimeModeEnforced() {
   }
 }
 
-export function formatVoltageTime(value: number | string, timezone: string): string {
-  const parsed = typeof value === 'number' ? value : Number(value)
-  if (!Number.isFinite(parsed)) {
-    return String(value)
-  }
-  const date = new Date(parsed)
-  if (Number.isNaN(date.getTime())) {
-    return String(value)
-  }
-  try {
-    return date.toLocaleTimeString(undefined, {
-      timeZone: timezone,
-      hour: '2-digit',
-      minute: '2-digit',
-      second: '2-digit',
-      hour12: false,
-    })
-  } catch {
-    return date.toLocaleTimeString(undefined, {
-      hour: '2-digit',
-      minute: '2-digit',
-      second: '2-digit',
-      hour12: false,
-    })
-  }
+export function formatVoltageTime(
+  value: number | string,
+  timezone: string,
+  includeDate = false,
+): string {
+  return formatChartAxisTimestamp(value, timezone, includeDate)
 }
 
 export function lastPositiveValue(points: Array<{ value: number }>): number | null {

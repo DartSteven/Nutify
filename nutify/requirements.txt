@@ -18,11 +18,15 @@ requests==2.32.3
 
 # Charting
 plotly==6.0.1
-kaleido==0.2.1.post1; python_version < "3.13"
-kaleido==0.2.1; python_version >= "3.13"
+kaleido==0.2.1.post1; python_version < "3.13" and platform_machine == "armv7l"
+kaleido==0.2.1; python_version >= "3.13" or platform_machine != "armv7l"
 
 # Security headers and CSP
 Flask-Talisman==1.1.0
+
+# OpenID Connect SSO
+Authlib==1.7.2
+joserfc==1.7.4
 
 # Socket UPS
 flask-socketio==5.5.1
@@ -32,7 +36,7 @@ eventlet==0.39.1
 gunicorn==23.0.0
 
 # Encryption
-cryptography==44.0.2
+cryptography==50.0.0
 
 # Task Scheduling
 schedule==1.2.2

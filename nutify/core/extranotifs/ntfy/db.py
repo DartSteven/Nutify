@@ -355,11 +355,27 @@ def get_notification_settings(target_id=None):
             return {}
 
         query, _ = _notification_scoped_query(notification_model, target_id)
+        scoped_rows = query.all()
         rows = {
             str(row.event_type or '').upper(): row
-            for row in query.all()
+            for row in scoped_rows
             if str(row.event_type or '').strip()
         }
+        # Compatibility fallback: old databases may have target-scoped rows even in single profile.
+        if not rows and target_id is not None and hasattr(notification_model, 'target_id'):
+            try:
+                legacy_rows = (
+                    notification_model.query
+                    .filter(notification_model.target_id == int(target_id))
+                    .all()
+                )
+                rows = {
+                    str(row.event_type or '').upper(): row
+                    for row in legacy_rows
+                    if str(row.event_type or '').strip()
+                }
+            except Exception:
+                pass
 
         settings = {}
         for event_type in _EVENT_TYPES:

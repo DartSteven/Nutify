@@ -18,13 +18,6 @@ export function registerConfigurationExecutionRuntime(ctx) {
 
     const effectiveProfile = ctx.actions.getEffectiveSetupProfile()
     const effectiveMultiTargets = ctx.actions.buildMultiTargetsPayload()
-    if (effectiveProfile === 'multi' && effectiveMultiTargets.length > 0) {
-      elements.testConfigBtn.disabled = false
-      elements.testConfigBtn.innerHTML = '<i class="fas fa-check-circle"></i> Test Configuration'
-      ctx.actions.runSequentialMultiTargetTests(effectiveMultiTargets, testResult)
-      return
-    }
-
     fetch('/nut_config/api/setup/test-configuration', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -39,10 +32,65 @@ export function registerConfigurationExecutionRuntime(ctx) {
       }),
     })
       .then((response) => response.json())
-      .then((data) => {
+      .then(async (data) => {
         elements.testConfigBtn.disabled = false
         elements.testConfigBtn.innerHTML = '<i class="fas fa-check-circle"></i> Test Configuration'
         if (data.status === 'success') {
+          if (effectiveProfile === 'multi') {
+            const targetResults = Array.isArray(data.target_results) ? data.target_results : []
+            for (let index = 0; index < targetResults.length; index += 1) {
+              const targetResult = targetResults[index]
+              const targetSpec = String(targetResult?.target || '').trim()
+              const matchedTarget = state.multiTargets.find((target) => {
+                const host = String(target.host || '').trim()
+                const port = ctx.actions.parseIntClamped(target.port, 3493, 1, 65535)
+                const candidateSpec = `${String(target.ups_name || '').trim()}@${host}${port === 3493 ? '' : `:${port}`}`
+                return candidateSpec === targetSpec
+              }) || state.multiTargets[index]
+              if (!matchedTarget) {
+                continue
+              }
+
+              let targetNominalPower = ctx.actions.coerceOptionalPositiveInt(targetResult?.nominal_power?.value)
+                || ctx.actions.coerceOptionalPositiveInt(matchedTarget.ups_realpower_nominal)
+              if (targetResult?.nominal_power?.requires_manual_input && !targetNominalPower) {
+                targetNominalPower = await ctx.actions.requestNominalPowerFromUser(
+                  matchedTarget.name || targetSpec,
+                  matchedTarget.ups_realpower_nominal,
+                )
+                if (!targetNominalPower) {
+                  ctx.actions.openModal(
+                    false,
+                    'Configuration test incomplete',
+                    `Target "${matchedTarget.name || targetSpec}" requires UPS nominal power.`,
+                  )
+                  testResult.classList.remove('hidden')
+                  testResult.innerHTML = '<div class="alert alert-error"><i class="fas fa-times-circle"></i> UPS nominal power is required before saving.</div>'
+                  elements.saveBtn.classList.add('hidden')
+                  return
+                }
+              }
+              if (targetNominalPower) {
+                matchedTarget.ups_realpower_nominal = targetNominalPower
+              }
+            }
+          }
+
+          const detectedNominalPower = ctx.actions.coerceOptionalPositiveInt(data?.nominal_power?.value)
+          const existingNominalPower = ctx.actions.coerceOptionalPositiveInt(state.upsRealpowerNominal)
+            || ctx.actions.coerceOptionalPositiveInt(state.primaryTargetNominalPower)
+          const effectiveNominalPower = detectedNominalPower || existingNominalPower
+          const nominalPower = data?.nominal_power && typeof data.nominal_power === 'object'
+            ? {
+                ...data.nominal_power,
+                found: Boolean(effectiveNominalPower),
+                value: effectiveNominalPower || null,
+                requires_manual_input: Boolean(data.nominal_power.requires_manual_input && !effectiveNominalPower),
+              }
+            : null
+          if (effectiveNominalPower) {
+            state.upsRealpowerNominal = effectiveNominalPower
+          }
           let output = data.upsc_output || data.test_details || ''
           if (output && output !== 'Connection successful') {
             output = `<div class="ups-data">${output.split('\n').map((line) => {
@@ -53,7 +101,7 @@ export function registerConfigurationExecutionRuntime(ctx) {
               return line
             }).join('')}</div>`
           }
-          ctx.actions.openModal(true, 'Configuration test successful!', output)
+          ctx.actions.openModal(true, 'Configuration test successful!', output, nominalPower)
           testResult.classList.remove('hidden')
           testResult.innerHTML = '<div class="alert alert-success"><i class="fas fa-check-circle"></i> Configuration test successful!</div>'
           elements.saveBtn.classList.remove('hidden')
@@ -189,8 +237,7 @@ export function registerConfigurationExecutionRuntime(ctx) {
         timezone: ctx.actions.normalizeSetupTimezone(elements.standaloneTimezone?.value, 'UTC'),
         currency: ctx.actions.normalizeSetupCurrency(elements.standaloneCurrency?.value, 'EUR'),
         polling_interval: ctx.actions.parseIntClamped(elements.standalonePollingInterval?.value, 1, 1, 60),
-        snmp_community: String(elements.standaloneSnmpCommunity?.value || '').trim(),
-        snmp_version: String(elements.standaloneSnmpVersion?.value || 'v1').trim() || 'v1',
+        ...ctx.actions.readSnmpSettings(''),
         usb_vendorid: String(selectedPrimaryUsb?.vendorid || '').trim(),
         usb_productid: String(selectedPrimaryUsb?.productid || '').trim(),
         usb_serial: String(selectedPrimaryUsb?.serial || '').trim(),
@@ -219,8 +266,7 @@ export function registerConfigurationExecutionRuntime(ctx) {
         timezone: ctx.actions.normalizeSetupTimezone(elements.netserverTimezone?.value, 'UTC'),
         currency: ctx.actions.normalizeSetupCurrency(elements.netserverCurrency?.value, 'EUR'),
         polling_interval: ctx.actions.parseIntClamped(elements.netserverPollingInterval?.value, 1, 1, 60),
-        snmp_community: String(elements.netserverSnmpCommunity?.value || '').trim(),
-        snmp_version: String(elements.netserverSnmpVersion?.value || 'v1').trim() || 'v1',
+        ...ctx.actions.readSnmpSettings('server_'),
         usb_vendorid: String(selectedPrimaryUsb?.vendorid || '').trim(),
         usb_productid: String(selectedPrimaryUsb?.productid || '').trim(),
         usb_serial: String(selectedPrimaryUsb?.serial || '').trim(),

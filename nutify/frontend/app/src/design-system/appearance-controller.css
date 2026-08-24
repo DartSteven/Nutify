@@ -1,0 +1,126 @@
+.page-kicker,
+.page-header-orbit,
+.sidebar-mark,
+.page_header--next-only {
+  display: none;
+}
+
+:root[data-ui-skin="next"] .page-kicker,
+:root[data-ui-skin="next"] .page-header-orbit,
+:root[data-ui-skin="next"] .sidebar-mark {
+  display: block;
+}
+
+:root[data-ui-skin="next"] .page_header--next-only {
+  display: flex;
+}
+
+.appearance-controller {
+  position: relative;
+}
+
+.appearance-popover {
+  position: absolute;
+  z-index: 1400;
+  top: calc(100% + 0.75rem);
+  right: 0;
+  width: min(320px, calc(100vw - 2rem));
+  padding: 0.9rem;
+  color: var(--text-primary);
+  border: 1px solid var(--border-color);
+  border-radius: 14px;
+  background: var(--bg-secondary);
+  box-shadow: 0 24px 70px rgba(0, 0, 0, 0.28);
+}
+
+.appearance-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.15rem 0.2rem 0.8rem;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.appearance-heading span {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-weight: 700;
+}
+
+.appearance-heading i {
+  color: var(--primary-color);
+}
+
+.appearance-heading small,
+.appearance-options small {
+  color: var(--text-secondary);
+  font-size: 0.68rem;
+  font-weight: 500;
+}
+
+.appearance-group {
+  margin: 0.85rem 0 0;
+  padding: 0;
+  border: 0;
+}
+
+.appearance-group legend {
+  margin-bottom: 0.45rem;
+  color: var(--text-secondary);
+  font-size: 0.67rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.appearance-options {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.5rem;
+}
+
+.appearance-options button {
+  display: flex;
+  min-height: 58px;
+  padding: 0.65rem 0.7rem;
+  align-items: flex-start;
+  justify-content: center;
+  flex-direction: column;
+  gap: 0.2rem;
+  color: var(--text-primary);
+  text-align: left;
+  border: 1px solid var(--border-color);
+  border-radius: 10px;
+  background: var(--bg-primary);
+  cursor: pointer;
+}
+
+.appearance-options button:hover {
+  border-color: var(--primary-color);
+}
+
+.appearance-options button.active {
+  color: var(--primary-color);
+  border-color: var(--primary-color);
+  background: color-mix(in srgb, var(--primary-color) 10%, var(--bg-secondary));
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--primary-color) 28%, transparent);
+}
+
+.appearance-colors button {
+  min-height: 42px;
+  align-items: center;
+  flex-direction: row;
+  gap: 0.45rem;
+}
+
+@media (max-width: 560px) {
+  .appearance-popover {
+    position: fixed;
+    top: 82px;
+    right: 0.75rem;
+    left: 0.75rem;
+    width: auto;
+  }
+}

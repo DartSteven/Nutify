@@ -4,6 +4,8 @@
  * Frontend module used by Nutify React UI flows and state management.
  */
 
+import { SnmpFields } from '../components/SnmpFields'
+
 export function SingleMonitorNetworkServer() {
   return (
     <div id="config-netserver" className="mode-config hidden">
@@ -54,14 +56,14 @@ export function SingleMonitorNetworkServer() {
               </div>
 
               <div className="form-group">
-                <label htmlFor="server_ups_port">Port:</label>
+                <label id="server_ups_port_label" htmlFor="server_ups_port">Port/Device:</label>
                 <div className="input-with-button">
                   <input type="text" id="server_ups_port" name="server_ups_port" defaultValue="auto" required />
                   <button type="button" id="scan-netserver" className="scan-button hidden">
                     <i className="fas fa-search" /> Scan
                   </button>
                 </div>
-                <div className="form-help">Usually `auto` for USB, or a specific port like `/dev/ttyS0` for serial.</div>
+                <div id="server_ups_port_help" className="form-help">Use `auto` for USB, or enter the local device path required by the selected driver.</div>
                 <div id="netserver-usb-port-picker" className="wizard-usb-port-picker hidden">
                   <label htmlFor="netserver_detected_usb_port">Detected USB Port:</label>
                   <div className="input-with-button">
@@ -81,9 +83,9 @@ export function SingleMonitorNetworkServer() {
 
             <div className="form-grid-2">
               <div className="form-group">
-                <label htmlFor="server_address_ns">Server Address:</label>
+                <label htmlFor="server_address_ns">Local NUT Server Address:</label>
                 <input type="text" id="server_address_ns" name="server_address_ns" defaultValue="127.0.0.1" />
-                <div className="form-help">IP address or hostname of this server (default: `127.0.0.1`).</div>
+                <div className="form-help">Address of Nutify's local NUT service, not the UPS network address. Usually `127.0.0.1`.</div>
               </div>
               <div id="netserver-primary-name-anchor">
                 <div id="netserver-primary-name-block" className="form-group">
@@ -120,21 +122,7 @@ export function SingleMonitorNetworkServer() {
               </div>
             </div>
 
-            <div id="netserver-snmp-fields" className="form-grid-2 hidden">
-              <div className="form-group">
-                <label htmlFor="server_snmp_community">SNMP Community:</label>
-                <input type="text" id="server_snmp_community" name="server_snmp_community" defaultValue="public" placeholder="public" />
-                <div className="form-help">Required for `snmp-ups`.</div>
-              </div>
-              <div className="form-group">
-                <label htmlFor="server_snmp_version">SNMP Version:</label>
-                <select id="server_snmp_version" name="server_snmp_version" defaultValue="v1">
-                  <option value="v1">v1</option>
-                  <option value="v2c">v2c</option>
-                  <option value="v3">v3</option>
-                </select>
-              </div>
-            </div>
+            <SnmpFields containerId="netserver-snmp-fields" idPrefix="server_" />
             <input type="hidden" id="server_ups_desc" name="server_ups_desc" defaultValue="Network UPS" />
           </div>
 

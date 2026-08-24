@@ -3,10 +3,8 @@ UPS Events ORM Model.
 This module defines the SQLAlchemy ORM model for the ups_events table.
 """
 
-from datetime import datetime
 from sqlalchemy import Column, Integer, String, Boolean, DateTime, Text
-import pytz
-from flask import current_app
+from core.events.time_utils import utc_now
 
 # These will be set during initialization
 db = None
@@ -16,10 +14,10 @@ class UPSEvent:
     __tablename__ = 'ups_events'  # Changed table name from ups_events_socket
     
     id = Column(Integer, primary_key=True)
-    timestamp_utc = Column(DateTime(timezone=True), nullable=False, 
-                        default=lambda: datetime.now(pytz.UTC))
+    timestamp_utc = Column(DateTime(timezone=True), nullable=False,
+                        default=utc_now)
     timestamp_utc_begin = Column(DateTime(timezone=True), 
-                              default=lambda: datetime.now(pytz.UTC))
+                              default=utc_now)
     timestamp_utc_end = Column(DateTime(timezone=True))
     ups_name = Column(String(255))
     event_type = Column(String(50))
@@ -30,14 +28,13 @@ class UPSEvent:
     
     def to_dict(self):
         """Convert to dictionary"""
-        # Convert UTC timestamps to local timezone for display
-        from core.db.ups.utils import utc_to_local
+        from core.events.time_utils import serialize_utc_timestamp
         
         result = {
             'id': self.id,
-            'timestamp_utc': self.timestamp_utc.isoformat() if self.timestamp_utc else None,
-            'timestamp_utc_begin': self.timestamp_utc_begin.isoformat() if self.timestamp_utc_begin else None,
-            'timestamp_utc_end': self.timestamp_utc_end.isoformat() if self.timestamp_utc_end else None,
+            'timestamp_utc': serialize_utc_timestamp(self.timestamp_utc),
+            'timestamp_utc_begin': serialize_utc_timestamp(self.timestamp_utc_begin),
+            'timestamp_utc_end': serialize_utc_timestamp(self.timestamp_utc_end),
             'ups_name': self.ups_name,
             'event_type': self.event_type,
             'event_message': self.event_message,
@@ -97,7 +94,7 @@ def init_model(model_base):
             
             # Set the timestamp in UTC if not provided
             if 'timestamp_utc' not in kwargs and 'timestamp_utc_begin' not in kwargs:
-                now = datetime.now(pytz.UTC)
+                now = utc_now()
                 self.timestamp_utc = now
                 self.timestamp_utc_begin = now
     

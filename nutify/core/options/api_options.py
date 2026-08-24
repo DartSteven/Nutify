@@ -10,6 +10,7 @@ import sys
 import tempfile
 import zipfile
 from datetime import datetime
+from datetime import timezone
 from .options import (
     get_database_stats,
     backup_database,
@@ -27,8 +28,9 @@ from core.logger import options_logger as logger
 from core.db.ups import db, VariableConfig
 from core.settings import LOG, LOG_LEVEL, LOG_WERKZEUG, UPS_CONF_PATH
 from core.mail import test_notification, get_mail_config_model
-from core.multi_nut.target_scope import resolve_settings_target_id
-import subprocess
+from core.multi_nut.target_scope import apply_target_scope, resolve_settings_target_id
+from core.scripts.executor import run_shell_script
+from core.auth import require_admin
 import pytz
 
 TIMEZONE_FILE = os.path.join(
@@ -1240,3 +1242,147 @@ def update_initial_setup_options():
             'success': False,
             'error': f"Failed to update initial setup configuration: {str(e)}"
         }), 500 
+
+
+def _script_action_model():
+    model_space = getattr(db, 'ModelClasses', None)
+    return getattr(model_space, 'ScriptAction', None) if model_space is not None else None
+
+
+def _script_action_scope():
+    return resolve_settings_target_id(request.args.get('target_id', type=int))
+
+
+def _script_action_query(model):
+    return apply_target_scope(model, model.query, _script_action_scope())
+
+
+def _safe_int(value, fallback=0):
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return int(fallback)
+
+
+def _sanitize_script_payload(payload):
+    data = payload or {}
+    name = str(data.get('name', '')).strip()
+    trigger_event = str(data.get('trigger_event', 'LOWBATT')).strip().upper()
+    battery_threshold = _safe_int(data.get('battery_threshold', 30), 30)
+    cooldown_seconds = _safe_int(data.get('cooldown_seconds', 300), 300)
+    script_body = str(data.get('script_body', '') or '')
+    enabled = bool(data.get('enabled', True))
+
+    if not name:
+        return None, 'Name is required'
+    if trigger_event not in {'ONBATT', 'LOWBATT'}:
+        return None, 'trigger_event must be ONBATT or LOWBATT'
+    if battery_threshold < 0 or battery_threshold > 100:
+        return None, 'battery_threshold must be between 0 and 100'
+    if cooldown_seconds < 0 or cooldown_seconds > 86400:
+        return None, 'cooldown_seconds must be between 0 and 86400'
+    if not script_body.strip():
+        return None, 'script_body is required'
+
+    normalized = {
+        'name': name[:128],
+        'trigger_event': trigger_event,
+        'battery_threshold': battery_threshold,
+        'cooldown_seconds': cooldown_seconds,
+        'script_body': script_body,
+        'enabled': enabled,
+    }
+    return normalized, None
+
+
+@api_options.route('/script-actions', methods=['GET'])
+@require_admin
+def list_script_actions():
+    ScriptAction = _script_action_model()
+    if ScriptAction is None:
+        return jsonify({'success': False, 'error': 'Script actions model not available'}), 500
+    rows = _script_action_query(ScriptAction).order_by(ScriptAction.id.asc()).all()
+    return jsonify({'success': True, 'data': [row.to_dict() for row in rows]})
+
+
+@api_options.route('/script-actions', methods=['POST'])
+@require_admin
+def create_script_action():
+    ScriptAction = _script_action_model()
+    if ScriptAction is None:
+        return jsonify({'success': False, 'error': 'Script actions model not available'}), 500
+    normalized, error = _sanitize_script_payload(request.get_json(silent=True))
+    if error:
+        return jsonify({'success': False, 'error': error}), 400
+    row = ScriptAction(**normalized, target_id=_script_action_scope())
+    db.session.add(row)
+    db.session.commit()
+    return jsonify({'success': True, 'data': row.to_dict()})
+
+
+@api_options.route('/script-actions/<int:action_id>', methods=['PUT'])
+@require_admin
+def update_script_action(action_id):
+    ScriptAction = _script_action_model()
+    if ScriptAction is None:
+        return jsonify({'success': False, 'error': 'Script actions model not available'}), 500
+    row = _script_action_query(ScriptAction).filter_by(id=action_id).first()
+    if not row:
+        return jsonify({'success': False, 'error': 'Script action not found'}), 404
+    normalized, error = _sanitize_script_payload(request.get_json(silent=True))
+    if error:
+        return jsonify({'success': False, 'error': error}), 400
+    for key, value in normalized.items():
+        setattr(row, key, value)
+    row.condition_active = False
+    db.session.add(row)
+    db.session.commit()
+    return jsonify({'success': True, 'data': row.to_dict()})
+
+
+@api_options.route('/script-actions/<int:action_id>', methods=['DELETE'])
+@require_admin
+def delete_script_action(action_id):
+    ScriptAction = _script_action_model()
+    if ScriptAction is None:
+        return jsonify({'success': False, 'error': 'Script actions model not available'}), 500
+    row = _script_action_query(ScriptAction).filter_by(id=action_id).first()
+    if not row:
+        return jsonify({'success': False, 'error': 'Script action not found'}), 404
+    db.session.delete(row)
+    db.session.commit()
+    return jsonify({'success': True})
+
+
+@api_options.route('/script-actions/<int:action_id>/test', methods=['POST'])
+@require_admin
+def test_script_action(action_id):
+    ScriptAction = _script_action_model()
+    if ScriptAction is None:
+        return jsonify({'success': False, 'error': 'Script actions model not available'}), 500
+    row = _script_action_query(ScriptAction).filter_by(id=action_id).first()
+    if not row:
+        return jsonify({'success': False, 'error': 'Script action not found'}), 404
+
+    script_body = str(getattr(row, 'script_body', '') or '').strip()
+    if not script_body:
+        return jsonify({'success': False, 'error': 'Script body is empty'}), 400
+
+    result = run_shell_script(script_body, timeout_seconds=30)
+    exit_code = result.exit_code
+    output = result.output
+
+    row.last_executed_at = datetime.now(timezone.utc)
+    row.last_exit_code = exit_code
+    row.last_output = output
+    db.session.add(row)
+    db.session.commit()
+
+    return jsonify({
+        'success': exit_code == 0,
+        'data': {
+            'exit_code': exit_code,
+            'output': output,
+            'last_executed_at': row.last_executed_at.isoformat() if row.last_executed_at else None,
+        },
+    })

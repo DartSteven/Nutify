@@ -18,8 +18,8 @@ export function AppSidebar() {
 
   return (
     <aside className="sidebar">
-      <div className="sidebar-logo">
-        <p className="page_subtitle" />
+      <div className="sidebar-logo" aria-label="Nutify">
+        <span className="sidebar-mark">N</span>
       </div>
       <nav className="sidebar-nav">
         {dashboardNav.map((item) => (

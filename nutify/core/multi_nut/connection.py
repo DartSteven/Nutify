@@ -3,11 +3,18 @@
 from __future__ import annotations
 
 import subprocess
+import time
 from typing import Dict, Tuple
 
 from core.db.ups.utils import calculate_realpower
 from core.logger import system_logger as logger
 from core.settings import UPSC_BIN
+from core.upsc_readiness import (
+    contains_stale_marker,
+    evaluate_upsc_readiness,
+    is_transient_readiness_error,
+    parse_upsc_output as parse_shared_upsc_output,
+)
 
 from .renamer import canonicalize_payload
 
@@ -21,17 +28,7 @@ def _safe_float(value):
 
 
 def _contains_stale_marker(text: str | None) -> bool:
-    message = str(text or '').strip().lower()
-    if not message:
-        return False
-    markers = (
-        'data stale',
-        'stale',
-        'nocomm',
-        'communication lost',
-        'not responding',
-    )
-    return any(marker in message for marker in markers)
+    return contains_stale_marker(text)
 
 
 def build_target_identifier(ups_name: str, host: str, port: int | None = None) -> str:
@@ -47,16 +44,7 @@ def build_target_identifier(ups_name: str, host: str, port: int | None = None) -
 
 def parse_upsc_output(raw_stdout: str) -> Dict[str, str]:
     """Parse raw upsc output into dict with dot-separated keys."""
-    parsed = {}
-    for line in raw_stdout.splitlines():
-        if ':' not in line:
-            continue
-        key, value = line.split(':', 1)
-        key = key.strip()
-        value = value.strip()
-        if key:
-            parsed[key] = value
-    return parsed
+    return parse_shared_upsc_output(raw_stdout)
 
 
 def normalize_metrics(raw_payload: Dict[str, str], target_id: int | None = None) -> Dict[str, object]:
@@ -112,6 +100,10 @@ def run_upsc_command(
             if _contains_stale_marker(payload.get(key_name)):
                 return False, {}, f"upsc returned stale state on {key_name} ({cmd} {target_identifier})"
 
+        ready, readiness_error = evaluate_upsc_readiness(payload)
+        if not ready:
+            return False, {}, f"{readiness_error} ({cmd} {target_identifier})"
+
         payload = calculate_realpower(payload, target_id=target_id)
         return True, payload, ""
 
@@ -151,6 +143,8 @@ def test_target_connection(payload: Dict[str, object]) -> Dict[str, object]:
     host = str(payload.get('host', '')).strip()
     port = int(payload.get('port') or 3493)
     timeout = int(payload.get('timeout') or 10)
+    readiness_timeout = max(float(payload.get('readiness_timeout') or 0), 0.0)
+    readiness_interval = max(float(payload.get('readiness_interval') or 1), 0.0)
     command_path = str(payload.get('command_path') or UPSC_BIN).strip()
 
     if not ups_name or not host:
@@ -160,14 +154,19 @@ def test_target_connection(payload: Dict[str, object]) -> Dict[str, object]:
             'metrics': {},
         }
 
-    success, raw_payload, error = run_upsc_command(
-        ups_name=ups_name,
-        host=host,
-        port=port,
-        command_path=command_path,
-        timeout=timeout,
-        target_id=payload.get('target_id'),
-    )
+    deadline = time.monotonic() + readiness_timeout
+    while True:
+        success, raw_payload, error = run_upsc_command(
+            ups_name=ups_name,
+            host=host,
+            port=port,
+            command_path=command_path,
+            timeout=timeout,
+            target_id=payload.get('target_id'),
+        )
+        if success or not is_transient_readiness_error(error) or time.monotonic() >= deadline:
+            break
+        time.sleep(readiness_interval)
 
     if not success:
         return {

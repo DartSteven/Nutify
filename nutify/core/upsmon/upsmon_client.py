@@ -3,12 +3,17 @@
 Implements core runtime logic and helpers used by this feature.
 """
 
+from __future__ import annotations
+
 from flask import jsonify, current_app, has_app_context
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Dict
 import pytz
 from ..db.ups import db, data_lock
 from ..logger import upsmon_logger as logger
+from core.events.time_utils import serialize_utc_timestamp, utc_now
+from core.multi_nut.target_scope import resolve_settings_target_id
+from .event_dedupe import find_recent_duplicate_event
 from .event_payload import normalize_event_type, resolve_target_id_from_payload, safe_positive_int
 
 logger.info("🌑 Initializing upsmon_client")
@@ -209,8 +214,7 @@ def handle_nut_event(app, data):
         parsed_target_id = safe_positive_int(data.get('target_id'))
         source_ip = data.get('source_ip')
         
-        tz = app.CACHE_TIMEZONE
-        now = datetime.now(tz)
+        now_utc = utc_now()
         
         active_db = _resolve_active_db()
         is_db_ready = _is_sqlalchemy_ready(active_db)
@@ -226,20 +230,36 @@ def handle_nut_event(app, data):
         if parsed_target_id is not None:
             data['target_id'] = parsed_target_id
         data['event'] = event
+        event_scope_target_id = resolve_settings_target_id(parsed_target_id)
 
         if is_db_ready and model_ready:
             with data_lock:
+                duplicate_event = find_recent_duplicate_event(
+                    session=active_db.session,
+                    event_model=UPSEvent,
+                    event_type=event,
+                    target_id=event_scope_target_id,
+                    reference_time=now_utc,
+                )
+                if duplicate_event:
+                    logger.info(
+                        "Suppressed duplicate UPS event id=%s target_id=%s event=%s",
+                        getattr(duplicate_event, 'id', 'unknown'),
+                        event_scope_target_id,
+                        event,
+                    )
+                    return True
                 db_event = UPSEvent(
                     ups_name=ups,
                     event_type=event,
                     event_message=str(data),
-                    timestamp_utc=now,
-                    timestamp_utc_begin=now,
+                    timestamp_utc=now_utc,
+                    timestamp_utc_begin=now_utc,
                     source_ip=source_ip,
                     acknowledged=False
                 )
                 if hasattr(db_event, 'target_id'):
-                    db_event.target_id = parsed_target_id
+                    db_event.target_id = event_scope_target_id
                 active_db.session.add(db_event)
                 active_db.session.commit()
                 logger.info(f"Event saved to database with id: {db_event.id}")
@@ -254,31 +274,35 @@ def handle_nut_event(app, data):
             app.socketio.emit('nut_event', data)
             logger.debug("Event sent via WebSocket")
         
-        notification_dispatched = False
+        resolved_metrics = _resolve_notification_metrics(
+            payload=data,
+            parsed_target_id=parsed_target_id,
+            active_db=active_db,
+            is_db_ready=is_db_ready,
+        )
 
-        # Multi-NUT target-scoped notifications must bypass legacy global notification path.
-        if parsed_target_id is not None:
+        notification_dispatched = False
+        dispatch_target_id = event_scope_target_id if event_scope_target_id is not None else parsed_target_id
+
+        # Use the real target for provider dispatch even when single profile stores settings globally.
+        if dispatch_target_id is not None:
             try:
                 from ..multi_nut.notifications import dispatch_target_event_notifications
                 from ..multi_nut.storage import get_target_with_policy
 
-                target, policy = get_target_with_policy(parsed_target_id)
+                target, policy = get_target_with_policy(dispatch_target_id)
                 if target and policy:
                     dispatch_result = dispatch_target_event_notifications(
                         target=target,
                         policy=policy,
                         event_type=event,
-                        metrics=_resolve_notification_metrics(
-                            payload=data,
-                            parsed_target_id=parsed_target_id,
-                            active_db=active_db,
-                            is_db_ready=is_db_ready,
-                        ),
+                        metrics=resolved_metrics,
                         reason=str(data.get('message') or data.get('error') or ''),
                     )
                     logger.info(
-                        "Target-scoped notification dispatched target_id=%s event=%s scope=%s success=%s",
-                        parsed_target_id,
+                        "Provider notification dispatch target_id=%s settings_scope=%s event=%s scope=%s success=%s",
+                        dispatch_target_id,
+                        event_scope_target_id,
                         event,
                         dispatch_result.get('scope'),
                         dispatch_result.get('success'),
@@ -286,29 +310,39 @@ def handle_nut_event(app, data):
                     notification_dispatched = True
                 else:
                     logger.warning(
-                        "Could not resolve target/policy for target-scoped notification target_id=%s event=%s",
-                        parsed_target_id,
+                        "Could not resolve target/policy for provider notification target_id=%s event=%s",
+                        dispatch_target_id,
                         event,
                     )
             except Exception as e:
-                logger.error(f"Error dispatching target-scoped notifications: {str(e)}", exc_info=True)
+                logger.error(f"Error dispatching provider notifications: {str(e)}", exc_info=True)
 
-        # Legacy single-monitor fallback is allowed only for unscoped events.
-        if parsed_target_id is None and not notification_dispatched:
+        # Legacy fallback remains allowed whenever target-scoped dispatch did not run.
+        if not notification_dispatched:
             try:
                 from ..mail import handle_notification
 
                 handle_notification(data)
-                logger.info("Legacy notification handler executed")
+                logger.info(
+                    "Legacy notification handler executed (target_id=%s, event=%s)",
+                    event_scope_target_id,
+                    event,
+                )
             except Exception as e:
                 logger.error(f"Error sending legacy notification: {str(e)}")
-        elif parsed_target_id is not None and not notification_dispatched:
-            logger.warning(
-                "Target-scoped event received but notifications were not dispatched "
-                "(target_id=%s, event=%s). Legacy fallback intentionally skipped.",
-                parsed_target_id,
-                event,
+
+        try:
+            from ..scripts.script_actions import maybe_execute_script_actions
+
+            maybe_execute_script_actions(
+                active_db=active_db,
+                event_type=event,
+                metrics=resolved_metrics,
+                payload=data,
+                target_id=event_scope_target_id,
             )
+        except Exception as script_exc:
+            logger.error(f"Error executing script actions: {script_exc}", exc_info=True)
         
         if event == 'ONLINE' and is_db_ready and model_ready:
             _init_models_if_needed(active_db=active_db)
@@ -319,14 +353,14 @@ def handle_nut_event(app, data):
                     UPSEvent.timestamp_utc_end.is_(None),
                 )
                 if hasattr(UPSEvent, 'target_id'):
-                    if parsed_target_id is not None:
-                        prev_event_query = prev_event_query.filter(UPSEvent.target_id == parsed_target_id)
+                    if event_scope_target_id is not None:
+                        prev_event_query = prev_event_query.filter(UPSEvent.target_id == event_scope_target_id)
                     else:
                         prev_event_query = prev_event_query.filter(UPSEvent.target_id.is_(None))
                 prev_event = prev_event_query.order_by(UPSEvent.timestamp_utc.desc()).first()
                 
                 if prev_event:
-                    prev_event.timestamp_utc_end = now
+                    prev_event.timestamp_utc_end = now_utc
                     active_db.session.commit()
                     logger.debug("Closed previous ONBATT event")
         
@@ -414,14 +448,14 @@ def get_events_table(rows='all', target_id=None):
                 event_dict = event.to_dict()
                 for ts_field in ['timestamp_utc', 'timestamp_utc_begin', 'timestamp_utc_end']:
                     if hasattr(event, ts_field) and getattr(event, ts_field):
-                        event_dict[ts_field] = getattr(event, ts_field).isoformat()
+                        event_dict[ts_field] = serialize_utc_timestamp(getattr(event, ts_field))
                 rows_data.append(event_dict)
             else:
                 row = {}
                 for column in columns:
                     value = getattr(event, column)
                     if isinstance(value, datetime):
-                        value = value.isoformat()
+                        value = serialize_utc_timestamp(value)
                     row[column] = value
                 rows_data.append(row)
         return {

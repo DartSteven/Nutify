@@ -1,0 +1,29 @@
+# Optional direct-hardware access override for one UPS device.
+#
+# This file does NOT select Nutify's Single Monitor or Multi Monitor profile.
+# Those monitoring profiles are selected later in the setup wizard.
+#
+# Why this override exists:
+# Docker decides which host devices a container may access before the container
+# starts. The Nutify wizard can configure a NUT driver and its port, but it
+# cannot add a missing host device or change Docker device-cgroup permissions.
+# Use this override only when a NUT driver running inside Nutify must open a
+# stable serial or non-USB device path from the Docker host. USB HID discovery
+# and access are already provided by the base docker-compose.yaml.
+#
+# Do not use it when Nutify connects to a remote or host-managed NUT server.
+# Do not use this override for USB HID devices discovered by nut-scanner.
+#
+# Always combine this override with the base Compose file:
+# docker compose -f docker-compose.yaml -f docker-compose.hardware.yaml up -d
+services:
+  nut:
+    # Expose only the selected UPS instead of privileged mode, all of /dev, or
+    # the complete USB bus. Configure the Wizard's NUT driver port with the
+    # NUTIFY_DEVICE_CONTAINER value.
+    devices:
+      - "${NUTIFY_DEVICE:?Set NUTIFY_DEVICE to one UPS device}:${NUTIFY_DEVICE_CONTAINER:-/dev/nutify-ups}:rw"
+    # Grant membership of the numeric host group owning the device.
+    # Find it with: stat -c '%g' /path/to/device
+    group_add:
+      - "${NUTIFY_DEVICE_GID:?Set NUTIFY_DEVICE_GID to the host device group ID}"

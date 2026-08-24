@@ -19,6 +19,7 @@ def create_app(config=None):
     # and keep SQLAlchemy bound to one canonical extension instance.
     from .db.ups import db
     from .socket import socketio
+    from .socket_config import socketio_server_options
     from core.report import report_manager, api_report, routes_report
     from core.options import api_options, routes_options
 
@@ -67,7 +68,7 @@ def create_app(config=None):
     db.init_app(app)
     
     # Initialize socketio but don't connect services yet
-    socketio.init_app(app)
+    socketio.init_app(app, **socketio_server_options())
     
     # Set the CACHE_TIMEZONE from the global app module
     # This is required for the report manager to work correctly

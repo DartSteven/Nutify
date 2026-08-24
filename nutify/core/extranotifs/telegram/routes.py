@@ -56,7 +56,10 @@ def create_blueprint():
         from core.extranotifs.telegram.telegram import test_notification
 
         event_type = request.args.get('event_type')
-        result = test_notification(request.json or {}, event_type=event_type)
+        config = request.json or {}
+        if isinstance(config, dict) and request.args.get('target_id'):
+            config['target_id'] = request.args.get('target_id')
+        result = test_notification(config, event_type=event_type)
         return jsonify(result)
 
     @telegram_bp.route('/api/telegram/test/<int:config_id>', methods=['POST'])
@@ -70,6 +73,8 @@ def create_blueprint():
             return jsonify({"success": False, "message": "Configuration not found"}), 404
 
         event_type = request.args.get('event_type')
+        if isinstance(config, dict) and request.args.get('target_id'):
+            config['target_id'] = request.args.get('target_id')
         result = test_notification(config, event_type=event_type)
         return jsonify(result)
 

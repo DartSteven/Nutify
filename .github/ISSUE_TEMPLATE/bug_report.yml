@@ -1,0 +1,52 @@
+name: Bug report
+description: Report reproducible Nutify behavior that is incorrect
+title: "[Bug]: "
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: Remove credentials, tokens, private keys, cookies, and public IP addresses from logs.
+  - type: input
+    id: version
+    attributes:
+      label: Nutify version and image tag
+      placeholder: 0.3.0 / dartsteven/nutify:0.3.0-amd64
+    validations:
+      required: true
+  - type: input
+    id: platform
+    attributes:
+      label: Host OS and architecture
+      placeholder: Ubuntu 24.04, AMD64, Docker Engine 28
+    validations:
+      required: true
+  - type: textarea
+    id: environment
+    attributes:
+      label: UPS and NUT environment
+      description: UPS model, driver, subdriver, profile, and Single/Multi mode where relevant.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Reproduction steps
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Sanitized logs and screenshots
+      render: shell

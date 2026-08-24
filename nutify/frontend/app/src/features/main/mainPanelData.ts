@@ -43,7 +43,7 @@ function parseMainPanelData(payload: {
   const ntfySettings = asRecord(ntfyBody.settings)
   for (const [eventType, settingValue] of Object.entries(ntfySettings)) {
     const setting = asRecord(settingValue)
-    if (Boolean(setting.enabled)) {
+    if (setting.enabled) {
       notifications.push({
         event_type: eventType,
         enabled: true,
@@ -56,7 +56,7 @@ function parseMainPanelData(payload: {
   const webhookSettings = asRecord(webhookBody.settings)
   for (const [eventType, settingValue] of Object.entries(webhookSettings)) {
     const setting = asRecord(settingValue)
-    if (Boolean(setting.enabled)) {
+    if (setting.enabled) {
       notifications.push({
         event_type: eventType,
         enabled: true,
@@ -69,7 +69,7 @@ function parseMainPanelData(payload: {
   const telegramSettings = asRecord(telegramBody.settings)
   for (const [eventType, settingValue] of Object.entries(telegramSettings)) {
     const setting = asRecord(settingValue)
-    if (Boolean(setting.enabled)) {
+    if (setting.enabled) {
       notifications.push({
         event_type: eventType,
         enabled: true,

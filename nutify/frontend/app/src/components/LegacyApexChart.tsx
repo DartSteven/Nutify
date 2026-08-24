@@ -6,6 +6,8 @@
 
 import { useEffect, useRef, type CSSProperties } from 'react'
 
+import { mergeApexThemeOptions, watchChartTheme } from '../lib/charts/theme'
+
 type ApexSeries = unknown[]
 
 type ApexChartProps = {
@@ -83,7 +85,7 @@ function mergeChartOptions(options: Record<string, unknown>, series: ApexSeries)
   const shouldDisableGrid = !hasExplicitGrid && (chartType === 'line' || chartType === 'area')
 
   return {
-    ...options,
+    ...mergeApexThemeOptions(options),
     ...(shouldDisableGrid ? { grid: { show: false } } : {}),
     series,
   }
@@ -101,8 +103,15 @@ function isDetachedApexError(error: unknown): boolean {
 export function LegacyApexChart({ options, series, className, style }: ApexChartProps) {
   const elementRef = useRef<HTMLDivElement | null>(null)
   const chartRef = useRef<ApexChartInstance | null>(null)
+  const optionsRef = useRef(options)
+  const seriesRef = useRef(series)
   const destroyedRef = useRef(false)
   const readyRef = useRef(false)
+
+  useEffect(() => {
+    optionsRef.current = options
+    seriesRef.current = series
+  }, [options, series])
 
   useEffect(() => {
     let disposed = false
@@ -122,7 +131,10 @@ export function LegacyApexChart({ options, series, className, style }: ApexChart
       }
 
       try {
-        const chart = new window.ApexCharts(elementRef.current, mergeChartOptions(options, series))
+        const chart = new window.ApexCharts(
+          elementRef.current,
+          mergeChartOptions(optionsRef.current, seriesRef.current),
+        )
         await chart.render()
         if (disposed || destroyedRef.current) {
           try {
@@ -176,6 +188,22 @@ export function LegacyApexChart({ options, series, className, style }: ApexChart
         console.error('Failed to update ApexCharts instance', error)
       }
     }
+  }, [options, series])
+
+  useEffect(() => {
+    return watchChartTheme(() => {
+      const chart = chartRef.current
+      if (!chart || destroyedRef.current || !readyRef.current) {
+        return
+      }
+      try {
+        void chart.updateOptions(mergeChartOptions(options, series), false, false, false)
+      } catch (error) {
+        if (!isDetachedApexError(error)) {
+          console.error('Failed to update ApexCharts theme', error)
+        }
+      }
+    })
   }, [options, series])
 
   return <div ref={elementRef} className={className} style={style} />

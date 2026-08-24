@@ -49,6 +49,13 @@ def logs_page():
     return serve_react_index()
 
 
+@routes_options.route('/scripts')
+@require_permission('options')
+def scripts_page():
+    """Serve target-scoped script automation settings."""
+    return serve_react_index()
+
+
 @routes_options.route('/system')
 @require_permission('options')
 def system_info_page():

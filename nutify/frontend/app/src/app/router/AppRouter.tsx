@@ -116,6 +116,7 @@ function buildRouter() {
             { path: '/options', element: <SettingsPage /> },
             { path: '/options/database', element: <SettingsPage /> },
             { path: '/options/logs', element: <SettingsPage /> },
+            { path: '/options/scripts', element: <SettingsPage /> },
             { path: '/options/system', element: <SettingsPage /> },
             { path: '/auth/admin', element: <AdminPage /> },
             { path: '/api', element: <ApiDocsPage /> },
@@ -133,7 +134,7 @@ function buildRouter() {
 
 export function AppRouter() {
   const locationKey = useBrowserLocationKey()
-  const router = useMemo(() => buildRouter(), [locationKey])
+  const router = useMemo(() => buildRouter(), [])
 
   return <RouterProvider key={locationKey} router={router} />
 }

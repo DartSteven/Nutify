@@ -82,7 +82,7 @@ export function registerMultiTargetFormRuntime(ctx) {
       return ['remote_nut']
     }
     if (state.selectedTopology === 'local_only') {
-      return ['local_usb_serial']
+      return ['local_usb_serial', 'local_network_driver']
     }
     if (state.selectedTopology === 'mixed') {
       return ['remote_nut']
@@ -128,7 +128,7 @@ export function registerMultiTargetFormRuntime(ctx) {
       if (state.selectedTopology === 'remote_only') {
         connectionType = 'remote_nut'
         if (elements.multiTargetConnectionType) elements.multiTargetConnectionType.value = connectionType
-      } else if (state.selectedTopology === 'local_only' && connectionType !== 'local_usb_serial') {
+      } else if (state.selectedTopology === 'local_only' && !['local_usb_serial', 'local_network_driver'].includes(connectionType)) {
         connectionType = 'local_usb_serial'
         if (elements.multiTargetConnectionType) elements.multiTargetConnectionType.value = connectionType
       }
@@ -154,7 +154,7 @@ export function registerMultiTargetFormRuntime(ctx) {
       if (connectionType === 'local_network_driver') {
         if (elements.multiTargetLocalDriver && !elements.multiTargetLocalDriver.value) elements.multiTargetLocalDriver.value = 'snmp-ups'
         if (elements.multiTargetLocalPort && (!elements.multiTargetLocalPort.value || elements.multiTargetLocalPort.value === 'auto')) {
-          elements.multiTargetLocalPort.value = '192.168.1.100'
+          elements.multiTargetLocalPort.value = ''
         }
       } else {
         if (elements.multiTargetLocalDriver && (!elements.multiTargetLocalDriver.value || elements.multiTargetLocalDriver.value === 'snmp-ups')) elements.multiTargetLocalDriver.value = 'usbhid-ups'
@@ -191,8 +191,7 @@ export function registerMultiTargetFormRuntime(ctx) {
     if (elements.multiTargetCurrency) {
       elements.multiTargetCurrency.value = ctx.actions.normalizeSetupCurrency('EUR', 'EUR')
     }
-    if (elements.multiTargetSnmpCommunity) elements.multiTargetSnmpCommunity.value = 'public'
-    if (elements.multiTargetSnmpVersion) elements.multiTargetSnmpVersion.value = 'v1'
+    ctx.actions.writeSnmpSettings('multi_target_')
     if (elements.multiTargetPolling) elements.multiTargetPolling.value = '1'
     if (elements.multiTargetDbStrategy) elements.multiTargetDbStrategy.value = 'shared'
     if (elements.multiTargetShard) elements.multiTargetShard.value = 'month'
@@ -259,8 +258,7 @@ export function registerMultiTargetFormRuntime(ctx) {
     let localDriver = ''
     let localPort = ''
     let localDescription = ''
-    let snmpCommunity = ''
-    let snmpVersion = 'v1'
+    let snmpSettings = ctx.actions.readSnmpSettings('__disabled_')
     let usbVendorId = ''
     let usbProductId = ''
     let usbSerial = ''
@@ -284,8 +282,7 @@ export function registerMultiTargetFormRuntime(ctx) {
       localDriver = String(elements.multiTargetLocalDriver?.value || '').trim()
       localPort = String(elements.multiTargetLocalPort?.value || '').trim()
       localDescription = String(elements.multiTargetLocalDesc?.value || '').trim()
-      snmpCommunity = String(elements.multiTargetSnmpCommunity?.value || '').trim()
-      snmpVersion = String(elements.multiTargetSnmpVersion?.value || 'v1').trim() || 'v1'
+      snmpSettings = ctx.actions.readSnmpSettings('multi_target_')
       if (!localDriver) {
         ctx.actions.showAlert('Please enter a local NUT driver for this target.', 'error')
         return null
@@ -294,9 +291,19 @@ export function registerMultiTargetFormRuntime(ctx) {
         ctx.actions.showAlert('Please enter the local driver port/device for this target.', 'error')
         return null
       }
-      if (ctx.actions.isSnmpDriver(localDriver) && !snmpCommunity) {
-        ctx.actions.showAlert('SNMP community is required when using snmp-ups.', 'error')
+      if (
+        ctx.actions.inferLocalConnectionTypeFromDriver(localDriver) === 'local_network_driver' &&
+        localPort.toLowerCase() === 'auto'
+      ) {
+        ctx.actions.showAlert('Enter the UPS hostname or IP address. Network drivers cannot use auto.', 'error')
         return null
+      }
+      if (ctx.actions.isSnmpDriver(localDriver)) {
+        const snmpError = ctx.actions.validateSnmpSettings('multi_target_')
+        if (snmpError) {
+          ctx.actions.showAlert(snmpError, 'error')
+          return null
+        }
       }
       if (String(localDriver || '').trim().toLowerCase() === 'usbhid-ups') {
         const selectedUsbDevice = ctx.actions.getSelectedMultiTargetUsbDevice?.() || null
@@ -364,8 +371,7 @@ export function registerMultiTargetFormRuntime(ctx) {
       local_driver: localDriver,
       local_port: localPort,
       local_description: localDescription,
-      snmp_community: isRemote ? '' : snmpCommunity,
-      snmp_version: isRemote ? 'v1' : snmpVersion,
+      ...snmpSettings,
       usb_vendorid: isRemote ? '' : usbVendorId,
       usb_productid: isRemote ? '' : usbProductId,
       usb_serial: isRemote ? '' : usbSerial,

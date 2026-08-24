@@ -62,6 +62,7 @@ def register_mail_api_routes(app):
                     'smtp_server': config.smtp_server or '',
                     'smtp_port': config.smtp_port or '',
                     'username': config.username or '',
+                    'from_email': config.from_email or '',
                     'enabled': bool(config.enabled),
                     'provider': config.provider or '',
                     'render_mode': getattr(config, 'render_mode', 'graphic') or 'graphic',
@@ -636,6 +637,7 @@ def register_mail_api_routes(app):
                     'smtp_server': config.smtp_server or '',
                     'smtp_port': config.smtp_port or '',
                     'username': config.username or '',
+                    'from_email': config.from_email or '',
                     'enabled': bool(config.enabled),
                     'provider': config.provider or '',
                     'render_mode': getattr(config, 'render_mode', 'graphic') or 'graphic',
@@ -701,22 +703,25 @@ def register_mail_api_routes(app):
             provider_info = email_providers.get(config.provider, {})
             requires_sender_email = provider_info.get('requires_sender_email', False)
             
-            # Get the password safely with proper error handling
-            try:
-                password = config.password
-                if password is None:
-                    logger.error(f"Password decryption failed for config ID {config_id}")
+            password = ''
+            username = str(config.username or '').strip()
+            if username:
+                # For authenticated SMTP, password must be decryptable.
+                try:
+                    password = config.password
+                    if password is None:
+                        logger.error(f"Password decryption failed for config ID {config_id}")
+                        return jsonify({
+                            'success': False,
+                            'message': 'Stored password cannot be decrypted with the current SECRET_KEY. Please edit the configuration and enter a new password.'
+                        })
+                    logger.debug(f"Successfully decrypted password for config ID {config_id}")
+                except Exception as e:
+                    logger.error(f"Exception when decrypting password for config ID {config_id}: {str(e)}")
                     return jsonify({
                         'success': False,
-                        'message': 'Stored password cannot be decrypted with the current SECRET_KEY. Please edit the configuration and enter a new password.'
+                        'message': f'Error decrypting password: {str(e)}. Please edit the configuration and enter a new password.'
                     })
-                logger.debug(f"Successfully decrypted password for config ID {config_id}")
-            except Exception as e:
-                logger.error(f"Exception when decrypting password for config ID {config_id}: {str(e)}")
-                return jsonify({
-                    'success': False,
-                    'message': f'Error decrypting password: {str(e)}. Please edit the configuration and enter a new password.'
-                })
             
             # Make sure from_email is properly set
             from_email = config.from_email
@@ -730,8 +735,8 @@ def register_mail_api_routes(app):
             test_config = {
                 'smtp_server': config.smtp_server,
                 'smtp_port': config.smtp_port,
-                'username': config.username,
-                'password': password,  # Use the decrypted password directly
+                'username': username,
+                'password': password,
                 'provider': config.provider,
                 'tls': config.tls,
                 'tls_starttls': config.tls_starttls,
@@ -777,6 +782,7 @@ def register_mail_api_routes(app):
                     'smtp_server': config.smtp_server or '',
                     'smtp_port': config.smtp_port or '',
                     'username': config.username or '',
+                    'from_email': config.from_email or '',
                     'enabled': bool(config.enabled),
                     'provider': config.provider or '',
                     'render_mode': getattr(config, 'render_mode', 'graphic') or 'graphic',

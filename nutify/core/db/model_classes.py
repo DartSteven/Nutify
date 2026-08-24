@@ -27,12 +27,15 @@ class ModelClasses:
     ReportSchedule = None
     MasterControl = None
     LoginAuth = None
+    OIDCIdentity = None
+    OIDCConfig = None
     UPSMonitorTarget = None
     UPSMonitorPolicy = None
     UPSMonitorData = None
     UPSMonitorRollup = None
     UPSMonitorTargetProfile = None
     UPSMonitorVariableMapping = None
+    ScriptAction = None
     
     # Legacy placeholders kept for compatibility. Runtime UPS telemetry is unified in UPSMonitorData.
     UPSStaticData = None
@@ -72,12 +75,15 @@ def init_model_classes(db_instance, timezone_getter):
     models.ReportSchedule = orm_models['ReportSchedule']
     models.MasterControl = orm_models['MasterControl']
     models.LoginAuth = orm_models['LoginAuth']
+    models.OIDCIdentity = orm_models['OIDCIdentity']
+    models.OIDCConfig = orm_models['OIDCConfig']
     models.UPSMonitorTarget = orm_models['UPSMonitorTarget']
     models.UPSMonitorPolicy = orm_models['UPSMonitorPolicy']
     models.UPSMonitorData = orm_models['UPSMonitorData']
     models.UPSMonitorRollup = orm_models['UPSMonitorRollup']
     models.UPSMonitorTargetProfile = orm_models['UPSMonitorTargetProfile']
     models.UPSMonitorVariableMapping = orm_models['UPSMonitorVariableMapping']
+    models.ScriptAction = orm_models['ScriptAction']
     
     # Log models loaded
     logger.info(f"✅ Loaded {len(orm_models)} ORM models from orm package")

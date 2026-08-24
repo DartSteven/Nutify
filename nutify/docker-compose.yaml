@@ -1,56 +1,64 @@
 services:
+  # Main Nutify application and NUT monitoring service.
   nut:
-    # Container image
-    image: dartsteven/nutify:amd64-latest        # Nutify image version
-    container_name: Nutify                       # Static container name for easy reference
+    # Select the tag matching the host CPU. This default is for AMD64/x86_64.
+    image: dartsteven/nutify:latest-amd64
+    container_name: Nutify
 
-    # Privileges required for 
-    # direct UPS and USB device access
-    privileged: true                             # Broad hardware access for NUT and USB integration
+    # Secure network-client profile: no privileged mode or host device mounts.
+    cap_drop:
+      - ALL
     cap_add:
-      - SYS_ADMIN                                # Extended system administration capabilities
-      - SYS_RAWIO                                # Raw hardware I/O access
-      - MKNOD                                    # Create special device files if needed
+      - CHOWN        # Prepare ownership on persistent files.
+      - DAC_OVERRIDE # Access bind mounts during startup preparation.
+      - FOWNER       # Adjust modes on prepared files.
+      - KILL         # Supervise child processes.
+      - SETGID       # Drop to the runtime group.
+      - SETUID       # Drop to the runtime user.
+    security_opt:
+      - no-new-privileges:true
 
-    # USB device mapping
-    devices:
-      - /dev/bus/usb:/dev/bus/usb:rwm            # Map host USB bus into the container
+    # USB HID discovery without privileged mode or a complete /dev mount.
     device_cgroup_rules:
-      - 'c 189:* rwm'                            # Allow all USB character devices
+      - "c 189:* rwm"
 
-    # Persistent storage and host integration
+    # Persistent host data retained across image updates.
     volumes:
-      - ./Nutify/logs:/app/nutify/logs           # Application logs
-      - ./Nutify/instance:/app/nutify/instance   # Persistent app data and runtime files
-      - ./Nutify/ssl:/app/ssl                    # SSL certificates and private keys
-      - ./Nutify/etc/nut:/etc/nut                # NUT configuration directory
-      - /dev:/dev:rw                             # Full device tree access for hardware detection
-      - /run/udev:/run/udev:ro                   # Udev event access for hotplug monitoring
+      - ./Nutify/logs:/app/nutify/logs         # Application and NUT logs.
+      - ./Nutify/instance:/app/nutify/instance # Database and runtime state.
+      - ./Nutify/ssl:/app/ssl                  # Optional TLS certificate/key.
+      - ./Nutify/etc/nut:/etc/nut              # Generated NUT configuration.
+      - /dev/bus/usb:/dev/bus/usb:rw           # USB devices for nut-scanner/NUT.
+      - /run/udev:/run/udev:ro                 # Read-only USB identity metadata.
 
-    # Runtime environment
+    # Base runtime settings. OIDC remains configurable from the web UI.
     environment:
-      - SECRET_KEY=test1234567890                # Secret key used for sessions and encrypted values
-      - UDEV=1                                   # Enable udev-aware USB detection mode
-      - LOG=true                                 # Enable general application logging: true/false, default is false
-      - LOG_LEVEL=INFO                           # Accepted values currently are DEBUG, INFO, WARNING, ERROR, CRITICAL
-      - LOG_WERKZEUG=true                        # Enable Werkzeug HTTP/server logs: true or false, default is false
-      - ENABLE_LOG_STARTUP=Y                     # Valid values are Y or N, default is N, any other value is treated as N
-      - SSL_ENABLED=false                        # true or false, default is false
-     
-     # DNS resolvers
+      SECRET_KEY: ${SECRET_KEY:?Set SECRET_KEY in .env; generate it with openssl rand -hex 32}
+      NUTIFY_WEB_USER: nut      # Unprivileged web process user.
+      NUT_SERVICE_USER: nut     # Unprivileged NUT command user.
+      UDEV: "1"                 # Enable USB/udev-aware discovery.
+      SKIP_PERMCHECK: "true"    # Never mutate host USB device permissions.
+      NUTIFY_USB_GID: ${NUTIFY_USB_GID:-} # Optional host USB group override.
+      LOG: "true"               # Enable application logging.
+      LOG_LEVEL: INFO            # Runtime log verbosity.
+      LOG_WERKZEUG: "true"      # Enable HTTP access logs.
+      ENABLE_LOG_STARTUP: Y      # Enable safe startup diagnostics.
+      SSL_ENABLED: "false"      # Enable only with valid mounted TLS files.
+      SOCKETIO_ALLOWED_ORIGINS: ${SOCKETIO_ALLOWED_ORIGINS:-}
+
+    # External DNS with short timeout and one fallback resolver.
     dns:
-      - 1.1.1.1                                  # Cloudflare DNS
-      - 8.8.8.8                                  # Google DNS
+      - 1.1.1.1 # Cloudflare DNS.
+      - 8.8.8.8 # Google Public DNS fallback.
     dns_opt:
-      - timeout:2                                # DNS timeout per query
-      - attempts:2                               # Retry count before failure
+      - timeout:2 # Seconds per attempt.
+      - attempts:2 # Attempts before failure.
 
-    # Exposed ports
+    # Published NUT, HTTP, and optional HTTPS ports.
     ports:
-      - 3493:3493                                # NUT daemon communication port
-      - 5050:5050                                # Nutify application port
-      - 443:443                                  # HTTPS secure web access
+      - "3493:3493" # NUT upsd endpoint.
+      - "5050:5050" # Nutify HTTP interface.
+      - "443:443"   # Nutify HTTPS interface.
 
-    restart: always                              # Keep the service running across failures/reboots
-    user: root                                   # Root required for full device and NUT access
-
+    # Restart after crashes and host reboots until explicitly stopped.
+    restart: always

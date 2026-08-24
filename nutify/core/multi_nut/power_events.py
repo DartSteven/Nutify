@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass
+from os import environ
 from threading import Lock
 from typing import Dict, List, Optional
 
@@ -16,11 +17,34 @@ class _PowerState:
     low_battery: bool
     replace_battery: bool
     forced_shutdown: bool
+
+
+@dataclass
+class _CommunicationState:
+    """Consecutive polling failures and emitted outage state for one target."""
+
+    consecutive_failures: int = 0
+    comm_bad_emitted: bool = False
     nocomm_emitted: bool = False
 
 
 _state_lock = Lock()
 _target_states: Dict[int, _PowerState] = {}
+_communication_states: Dict[int, _CommunicationState] = {}
+
+
+def _positive_int_env(name: str, default: int) -> int:
+    try:
+        return max(1, int(environ.get(name, default)))
+    except (TypeError, ValueError):
+        return default
+
+
+COMM_BAD_FAILURE_THRESHOLD = _positive_int_env('NUTIFY_COMM_BAD_FAILURE_THRESHOLD', 2)
+NOCOMM_FAILURE_THRESHOLD = max(
+    COMM_BAD_FAILURE_THRESHOLD + 1,
+    _positive_int_env('NUTIFY_NOCOMM_FAILURE_THRESHOLD', 3),
+)
 
 
 def _safe_float(value) -> Optional[float]:
@@ -48,11 +72,13 @@ def _derive_power_state(metrics: Dict[str, object]) -> Optional[_PowerState]:
 
     battery_charge = _safe_float(metrics.get('battery_charge'))
     battery_charge_low = _safe_float(metrics.get('battery_charge_low'))
-    if battery_charge is not None and battery_charge_low is not None and battery_charge <= battery_charge_low:
+    if (
+        on_battery
+        and battery_charge is not None
+        and battery_charge_low is not None
+        and battery_charge <= battery_charge_low
+    ):
         low_battery = True
-
-    if low_battery:
-        on_battery = True
 
     if not tokens and battery_charge is None and battery_charge_low is None:
         return None
@@ -69,50 +95,46 @@ def _derive_power_state(metrics: Dict[str, object]) -> Optional[_PowerState]:
     )
 
 
-def reset_target_power_state(target_id: int) -> None:
-    """Forget cached state for one target (for example after communication loss)."""
+def collect_poll_success_events(target_id: int) -> List[str]:
+    """Clear polling outage state and emit COMMOK only after confirmed COMMBAD."""
     with _state_lock:
-        _target_states.pop(int(target_id), None)
-
-
-def register_poll_success(target_id: int) -> None:
-    """Clear communication outage marker when polling is healthy again."""
-    with _state_lock:
-        state = _target_states.get(int(target_id))
+        state = _communication_states.pop(int(target_id), None)
         if state is None:
-            return
-        state.nocomm_emitted = False
+            return []
+        return ['COMMOK'] if state.comm_bad_emitted else []
 
 
-def collect_poll_failure_events(target_id: int, had_previous_error: bool) -> List[str]:
-    """Emit NOCOMM once per continuous outage after initial COMMBAD."""
+def collect_poll_failure_events(target_id: int) -> List[str]:
+    """Debounce transient failures and emit each communication event once."""
     target_id_int = int(target_id)
+    events: List[str] = []
     with _state_lock:
-        state = _target_states.get(target_id_int)
+        state = _communication_states.get(target_id_int)
         if state is None:
-            state = _PowerState(
-                on_battery=False,
-                low_battery=False,
-                replace_battery=False,
-                forced_shutdown=False,
-            )
-            _target_states[target_id_int] = state
+            state = _CommunicationState()
+            _communication_states[target_id_int] = state
 
-        if not had_previous_error:
-            state.nocomm_emitted = False
-            return []
-
-        if state.nocomm_emitted:
-            return []
-        state.nocomm_emitted = True
-        return ['NOCOMM']
+        state.consecutive_failures += 1
+        if (
+            state.consecutive_failures >= COMM_BAD_FAILURE_THRESHOLD
+            and not state.comm_bad_emitted
+        ):
+            state.comm_bad_emitted = True
+            events.append('COMMBAD')
+        if (
+            state.consecutive_failures >= NOCOMM_FAILURE_THRESHOLD
+            and not state.nocomm_emitted
+        ):
+            state.nocomm_emitted = True
+            events.append('NOCOMM')
+    return events
 
 
 def collect_power_transition_events(target_id: int, metrics: Dict[str, object]) -> List[str]:
     """
     Compute ONBATT/ONLINE/LOWBATT transitions from current metrics.
 
-    The first valid sample does not emit ONLINE by design to avoid startup noise.
+    The first valid sample seeds state only; events are emitted on transitions.
     """
     derived_state = _derive_power_state(metrics or {})
     if derived_state is None:
@@ -123,20 +145,10 @@ def collect_power_transition_events(target_id: int, metrics: Dict[str, object]) 
 
     with _state_lock:
         previous = _target_states.get(target_id_int)
-        nocomm_emitted = bool(previous.nocomm_emitted) if previous else False
-        derived_state.nocomm_emitted = nocomm_emitted
         _target_states[target_id_int] = derived_state
 
     if previous is None:
-        if derived_state.on_battery:
-            events.append('ONBATT')
-        if derived_state.low_battery:
-            events.append('LOWBATT')
-        if derived_state.replace_battery:
-            events.append('REPLBATT')
-        if derived_state.forced_shutdown:
-            events.append('SHUTDOWN')
-        return events
+        return []
 
     if not previous.on_battery and derived_state.on_battery:
         events.append('ONBATT')

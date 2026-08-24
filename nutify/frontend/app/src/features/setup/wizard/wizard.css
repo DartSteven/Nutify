@@ -10,12 +10,6 @@
   --wizard-detail-title: #1f2d3d;
 }
 
-:root[data-theme='dark'] .setup-container {
-  --wizard-detail-bg: var(--bg-tertiary);
-  --wizard-detail-border: var(--border-color);
-  --wizard-detail-title: var(--text-primary);
-}
-
 .setup-container .wizard-detail-card,
 .setup-container .wizard-primary-two-col .wizard-auto-detect-details {
   padding: 18px;
@@ -185,6 +179,15 @@
 
 .setup-container .wizard-manual-stack .wizard-detail-card .form-group {
   margin-bottom: 0;
+}
+
+.setup-container .wizard-snmp-fields {
+  margin-top: 18px;
+}
+
+.setup-container .wizard-snmp-fields > .form-grid-2 + .form-grid-2,
+.setup-container .wizard-snmp-fields > .form-grid-2 + .form-group {
+  margin-top: 18px;
 }
 
 .setup-container .wizard-usb-port-picker {

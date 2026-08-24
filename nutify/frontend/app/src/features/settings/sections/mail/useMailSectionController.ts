@@ -128,6 +128,7 @@ export function useMailSectionController() {
       const providerValue = form.provider || form.customProviderName.trim()
       return testMailRawConfig(
         {
+          id: form.id,
           smtp_server: form.smtpServer.trim(),
           smtp_port: Number(form.smtpPort),
           smtp_username: form.username.trim(),
@@ -137,7 +138,7 @@ export function useMailSectionController() {
           use_tls: form.useTls,
           use_starttls: form.useStarttls,
           from_email: form.fromEmail.trim(),
-          to_email: form.toEmail.trim() || form.username.trim(),
+          to_email: form.toEmail.trim() || form.fromEmail.trim() || form.username.trim(),
           render_mode: form.renderMode,
         },
         activeTargetId,
@@ -194,9 +195,9 @@ export function useMailSectionController() {
     mutationFn: () =>
       testReportSchedule({
         reports: reportSettings.selectedReports,
-        period_type: 'range',
-        from_date: reportSettings.fromDate,
-        to_date: reportSettings.toDate,
+        period_type: reportSettings.periodType,
+        from_date: reportSettings.periodType === 'range' ? reportSettings.fromDate : undefined,
+        to_date: reportSettings.periodType === 'range' ? reportSettings.toDate : undefined,
         mail_config_id: Number(reportSettings.mailConfigId),
       }, activeTargetId),
     onSuccess: (payload) => {

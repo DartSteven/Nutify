@@ -1,0 +1,14 @@
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /nutify/frontend/app
+    schedule:
+      interval: monthly
+  - package-ecosystem: pip
+    directory: /nutify
+    schedule:
+      interval: monthly
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly

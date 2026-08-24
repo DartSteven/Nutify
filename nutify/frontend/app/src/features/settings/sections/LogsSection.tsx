@@ -4,7 +4,7 @@
  * Frontend module used by Nutify React UI flows and state management.
  */
 
-import { useLogsSectionController } from './logs/useLogsSectionController'
+import { useLogsSectionController } from './useLogsSectionController'
 
 export function LogsSection() {
   const {
@@ -105,7 +105,7 @@ export function LogsSection() {
             <i className="fas fa-tools" />
           </div>
           <div className="stat-content">
-            <div className="stat-label">Werkzeug Logs</div>
+            <div className="stat-label">HTTP Access Logs</div>
             <div className="control-container">
               <div className="toggle-switch">
                 <input
@@ -122,7 +122,7 @@ export function LogsSection() {
                 </label>
               </div>
             </div>
-            <p className="stat-description">Enable/disable Werkzeug logs</p>
+            <p className="stat-description">Enable built-in web server HTTP request logs</p>
           </div>
         </div>
 

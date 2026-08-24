@@ -31,6 +31,7 @@ from flask import current_app
 from core.nut_config import check_nut_config_files
 from core.logger import system_logger  # Import system_logger for main console output
 from core.events.notifier_path import get_ups_notifier_command_path
+from core.nut.service_user import get_nut_service_user
 
 # Set up logger
 logger = logging.getLogger('nut_daemon')
@@ -607,7 +608,7 @@ def start_nut_services(wait_time=None):
             logger.info("Starting NUT driver controller")
             
             # Try the direct command approach first (like in wizard)
-            direct_driver_cmd = [UPSDRVCTL_BIN, "-u", "root", "start"]
+            direct_driver_cmd = [UPSDRVCTL_BIN, "-u", get_nut_service_user(), "start"]
             logger.debug(f"🔍 DEBUG - Running direct driver command: {' '.join(direct_driver_cmd)}")
             
             driver_result = subprocess.run(
@@ -668,7 +669,7 @@ def start_nut_services(wait_time=None):
             logger.info("Starting NUT server (upsd)")
             
             # Try direct command first (like in wizard)
-            direct_server_cmd = [UPSD_BIN, "-u", "root"]
+            direct_server_cmd = [UPSD_BIN, "-u", get_nut_service_user()]
             logger.debug(f"🔍 DEBUG - Running direct server command: {' '.join(direct_server_cmd)}")
             
             server_result = subprocess.run(
@@ -733,7 +734,7 @@ def start_nut_services(wait_time=None):
         system_logger.info(f"NUT startup - Executing monitor command at {time.strftime('%H:%M:%S')}")
         
         # Try direct command first (like in wizard)
-        direct_monitor_cmd = [UPSMON_BIN, "-u", "root"]
+        direct_monitor_cmd = [UPSMON_BIN, "-u", get_nut_service_user()]
         logger.debug(f"🔍 DEBUG - Running direct monitor command: {' '.join(direct_monitor_cmd)}")
         
         monitor_result = subprocess.run(

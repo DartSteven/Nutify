@@ -46,7 +46,7 @@ export function NotifySection() {
   }, [activeTargetId, targets])
 
   const validMailConfigs = useMemo(
-    () => mail.configs.filter((config) => config.username.trim().length > 0),
+    () => mail.configs,
     [mail.configs],
   )
 
@@ -58,7 +58,7 @@ export function NotifySection() {
           || mail.providers[config.provider]?.note
           || config.provider
           || 'Mail'
-        const destination = config.to_email || config.username || `Config #${config.id}`
+        const destination = config.to_email || config.from_email || config.username || config.smtp_server || `Config #${config.id}`
         return {
           value: String(config.id),
           label: `${providerLabel} - ${destination}`,

@@ -10,7 +10,7 @@ from core.settings import (
     INSTANCE_PATH, DB_NAME, NUT_CONF_DIR, UPSC_BIN, UPSC_CMD,
     UPSD_BIN, UPSDRVCTL_BIN, NUT_START_DRIVER_CMD, NUT_START_SERVER_CMD,
     NUT_STOP_DRIVER_CMD, NUT_STOP_SERVER_CMD, NUT_STOP_MONITOR_CMD, NUT_DRIVER_DIR,
-    NUT_SCANNER_CMD
+    NUT_SCANNER_CMD, NUT_SERVICE_START_TIMEOUT
 )
 from core.logger import system_logger as logger
 from core.react_frontend import serve_react_index
@@ -34,8 +34,27 @@ from sqlalchemy.sql import select, func
 # Import configuration manager once
 from .conf_manager import NUTConfManager
 from .nut_scanner_parser import parse_nut_scanner_devices, combined_preview_config
+from .network_driver_config import (
+    is_missing_network_endpoint,
+    is_network_driver,
+    normalize_primary_network_endpoint,
+    validate_primary_network_endpoint,
+    validate_ups_conf_network_endpoints,
+)
+from .snmp_config import (
+    append_missing_snmp_lines,
+    normalize_snmp_settings,
+    render_snmp_lines,
+    validate_snmp_settings,
+)
+from .target_validation import (
+    summarize_upsc_details,
+    wait_for_upsc_targets,
+)
 from core.multi_nut.connection import test_target_connection
 from core.events.notifier_path import get_ups_notifier_command_path
+from core.nut.service_user import get_nut_service_user
+from core.upsc_readiness import nominal_power_metadata
 
 # Restore original blueprint setup with correct URL prefix
 nut_config_bp = Blueprint('nut_config', __name__, url_prefix='/nut_config')
@@ -205,8 +224,7 @@ def sanitize_multi_targets(raw_targets):
         local_driver = str(item.get('local_driver') or item.get('ups_driver') or '').strip()
         local_port = str(item.get('local_port') or item.get('ups_port') or '').strip()
         local_description = str(item.get('local_description') or item.get('ups_desc') or '').strip()
-        snmp_version = str(item.get('snmp_version') or 'v1').strip() or 'v1'
-        snmp_community = str(item.get('snmp_community') or '').strip()
+        snmp_settings = normalize_snmp_settings(item)
         usb_vendorid = str(item.get('usb_vendorid') or '').strip()
         usb_productid = str(item.get('usb_productid') or '').strip()
         usb_serial = str(item.get('usb_serial') or '').strip()
@@ -219,13 +237,15 @@ def sanitize_multi_targets(raw_targets):
         if connection_type != 'remote_nut':
             host = '127.0.0.1'
             local_driver = local_driver or ('snmp-ups' if connection_type == 'local_network_driver' else 'usbhid-ups')
-            local_port = local_port or ('192.168.1.100' if connection_type == 'local_network_driver' else 'auto')
+            local_port = local_port or ('' if connection_type == 'local_network_driver' else 'auto')
             monitor_password = monitor_password or 'monpass'
 
-        if connection_type == 'local_network_driver' or 'snmp' in local_driver.lower():
-            snmp_community = snmp_community or 'public'
-        else:
-            snmp_community = ''
+        is_snmp = connection_type == 'local_network_driver' or 'snmp' in local_driver.lower()
+        if is_snmp and snmp_settings['snmp_version'] in {'v1', 'v2c'}:
+            snmp_settings['snmp_community'] = snmp_settings['snmp_community'] or 'public'
+        if not is_snmp:
+            snmp_settings = normalize_snmp_settings({})
+            snmp_settings['snmp_community'] = ''
 
         location_enabled = bool(item.get('location_enabled', False))
         location_country = str(item.get('location_country') or '').strip() if location_enabled else ''
@@ -276,8 +296,7 @@ def sanitize_multi_targets(raw_targets):
             'local_driver': local_driver,
             'local_port': local_port,
             'local_description': local_description or item.get('name') or ups_name,
-            'snmp_version': snmp_version,
-            'snmp_community': snmp_community,
+            **snmp_settings,
             'usb_vendorid': usb_vendorid,
             'usb_productid': usb_productid,
             'usb_serial': usb_serial,
@@ -321,7 +340,20 @@ def sanitize_multi_targets(raw_targets):
 def validate_targets_for_topology(targets, topology):
     """Validate target connection types against selected topology."""
     normalized_topology = normalize_multi_topology(topology)
-    if not normalized_topology or not targets:
+    if not targets:
+        return
+
+    for target in targets:
+        driver = target.get('local_driver')
+        if target.get('connection_type') != 'remote_nut' and is_network_driver(driver):
+            if is_missing_network_endpoint(target.get('local_port')):
+                target_name = target.get('name') or target.get('ups_name') or 'Unnamed target'
+                raise ValueError(
+                    f"Network target '{target_name}' requires the UPS hostname or IP address "
+                    "in Port/Device; 'auto' is valid only for local device drivers."
+                )
+
+    if not normalized_topology:
         return
 
     if normalized_topology == 'remote_only':
@@ -427,6 +459,10 @@ def test_config():
         for file in required_files:
             if file not in data or not data[file]:
                 validation_errors.append(f"Missing {file} configuration")
+
+        validation_errors.extend(
+            validate_ups_conf_network_endpoints(data.get('ups_conf', ''))
+        )
         
         if validation_errors:
             return jsonify({
@@ -564,6 +600,12 @@ def test_config():
             return targets
 
         def build_targets_to_test():
+            def normalize_test_host(value):
+                host = str(value or '').strip()
+                if host.lower() in {'localhost', '127.0.0.1'}:
+                    return '127.0.0.1'
+                return host
+
             candidates = []
             candidates.extend(parse_monitor_targets(data.get('upsmon_conf', '')))
 
@@ -593,7 +635,7 @@ def test_config():
             for candidate in candidates:
                 key = (
                     str(candidate.get('ups_name') or '').strip(),
-                    str(candidate.get('host') or '').strip(),
+                    normalize_test_host(candidate.get('host')),
                     coerce_int(candidate.get('port'), 3493, 1, 65535),
                 )
                 if not key[0] or not key[1] or key in seen:
@@ -608,33 +650,17 @@ def test_config():
 
             return unique_candidates
 
-        def run_upsc_checks(target_candidates):
-            failures = []
-            summary_lines = []
-            detail_blocks = []
-
-            for candidate in target_candidates:
-                host_with_port = (
-                    candidate['host']
-                    if candidate['port'] == 3493
-                    else f"{candidate['host']}:{candidate['port']}"
-                )
-                ups_spec = f"{candidate['ups_name']}@{host_with_port}"
-                logger.info(f"Testing UPS target with command: {UPSC_BIN} {ups_spec}")
-                result = subprocess.run([UPSC_BIN, ups_spec], capture_output=True, text=True)
-                if result.returncode != 0:
-                    error_text = (result.stderr or result.stdout or 'Unknown error').strip()
-                    failures.append(f"{ups_spec}: {error_text}")
-                    summary_lines.append(f"❌ {ups_spec} - {error_text}")
-                    continue
-
-                summary_lines.append(f"✅ {ups_spec}")
-                output_text = (result.stdout or '').strip()
-                detail_blocks.append(
-                    f"[{ups_spec}]\n{output_text if output_text else 'Connection successful'}"
-                )
-
-            return failures, summary_lines, detail_blocks
+        def successful_test_payload(message, detail_blocks):
+            target_results = summarize_upsc_details(detail_blocks)
+            response_payload = {
+                'status': 'success',
+                'message': message,
+                'test_details': '\n\n'.join(detail_blocks),
+                'target_results': target_results,
+            }
+            if len(target_results) == 1:
+                response_payload['nominal_power'] = target_results[0]['nominal_power']
+            return response_payload
 
         targets_to_test = build_targets_to_test()
         all_remote_targets = bool(targets_to_test) and all(
@@ -645,7 +671,11 @@ def test_config():
         # For remote-only scenarios, test directly without touching local NUT services.
         if all_remote_targets:
             logger.info(f"Testing remote NUT targets directly: {len(targets_to_test)} target(s)")
-            failures, _, detail_blocks = run_upsc_checks(targets_to_test)
+            failures, _, detail_blocks = wait_for_upsc_targets(
+                targets_to_test,
+                UPSC_BIN,
+                timeout_seconds=NUT_SERVICE_START_TIMEOUT,
+            )
             if failures:
                 logger.error(f"Remote NUT target validation failed: {failures}")
                 return jsonify({
@@ -653,11 +683,10 @@ def test_config():
                     'errors': ['One or more remote targets failed validation:'] + failures
                 }), 400
 
-            return jsonify({
-                'status': 'success',
-                'message': f"Successfully connected to {len(targets_to_test)} remote NUT target(s).",
-                'test_details': '\n\n'.join(detail_blocks),
-            })
+            return jsonify(successful_test_payload(
+                f"Successfully connected to {len(targets_to_test)} remote NUT target(s).",
+                detail_blocks,
+            ))
         
         # For local configurations, write files and start services
         backup_files = {}
@@ -707,7 +736,7 @@ def test_config():
             # Parse the NUT_START_DRIVER_CMD to get the arguments
             driver_cmd_parts = NUT_START_DRIVER_CMD.split()
             # Make sure we use the correct binary path
-            driver_args = driver_cmd_parts[1:] if len(driver_cmd_parts) > 1 else ["-u", "root", "start"]
+            driver_args = driver_cmd_parts[1:] if len(driver_cmd_parts) > 1 else ["-u", get_nut_service_user(), "start"]
             driver_result = subprocess.run([UPSDRVCTL_BIN] + driver_args, 
                                           capture_output=True, text=True)
             
@@ -724,7 +753,7 @@ def test_config():
             # Parse the NUT_START_SERVER_CMD to get the arguments
             server_cmd_parts = NUT_START_SERVER_CMD.split()
             # Make sure we use the correct binary path
-            server_args = server_cmd_parts[1:] if len(server_cmd_parts) > 1 else ["-u", "root"]
+            server_args = server_cmd_parts[1:] if len(server_cmd_parts) > 1 else ["-u", get_nut_service_user()]
             upsd_result = subprocess.run([UPSD_BIN] + server_args, 
                                          capture_output=True, text=True)
             
@@ -738,11 +767,13 @@ def test_config():
                     'errors': [f"Failed to start NUT server: {upsd_result.stderr}"]
                 }), 400
             
-            # Wait for services to be fully operational
-            time.sleep(3)
-            
-            # Test all target(s) with upsc
-            failures, summary_lines, detail_blocks = run_upsc_checks(targets_to_test)
+            # Network drivers may need several polls after upsd starts before
+            # their state socket becomes ready. Honor the configured startup timeout.
+            failures, summary_lines, detail_blocks = wait_for_upsc_targets(
+                targets_to_test,
+                UPSC_BIN,
+                timeout_seconds=NUT_SERVICE_START_TIMEOUT,
+            )
 
             if failures:
                 logger.error(f"Failed to connect to one or more UPS targets: {failures}")
@@ -779,11 +810,10 @@ def test_config():
             subprocess.run([UPSDRVCTL_BIN, "stop"], stderr=subprocess.PIPE)
             
             logger.info("NUT configuration test completed successfully")
-            return jsonify({
-                'status': 'success',
-                'message': f"Successfully connected to {len(targets_to_test)} UPS target(s).",
-                'test_details': '\n\n'.join(detail_blocks),
-            })
+            return jsonify(successful_test_payload(
+                f"Successfully connected to {len(targets_to_test)} UPS target(s).",
+                detail_blocks,
+            ))
             
         except Exception as e:
             logger.error(f"Exception during NUT service testing: {str(e)}", exc_info=True)
@@ -837,26 +867,7 @@ def test_setup_target():
 
         def with_nominal_metadata(response_payload, raw_payload=None):
             raw_values = raw_payload if isinstance(raw_payload, dict) else {}
-            inspected_upsc = bool(raw_values)
-            nominal_value = None
-            source_key = None
-            for candidate in ('ups.realpower.nominal', 'ups_realpower_nominal'):
-                if candidate in raw_values and str(raw_values.get(candidate) or '').strip():
-                    nominal_value = raw_values.get(candidate)
-                    source_key = candidate
-                    break
-            if nominal_value is None and manual_nominal is not None:
-                nominal_value = manual_nominal
-                source_key = 'manual_input'
-
-            nominal_found = nominal_value is not None
-            response_payload['nominal_power'] = {
-                'found': nominal_found,
-                'value': nominal_value,
-                'source': source_key,
-                'requires_manual_input': bool(inspected_upsc and not nominal_found),
-                'inspected_upsc': inspected_upsc,
-            }
+            response_payload['nominal_power'] = nominal_power_metadata(raw_values, manual_nominal)
             return response_payload
 
         if connection_type == 'remote_nut':
@@ -865,6 +876,8 @@ def test_setup_target():
                 'host': target.get('host'),
                 'port': target.get('port', 3493),
                 'timeout': 10,
+                'readiness_timeout': NUT_SERVICE_START_TIMEOUT,
+                'readiness_interval': 1,
                 'command_path': UPSC_BIN,
             })
             status_code = 200 if result.get('success') else 400
@@ -889,11 +902,11 @@ def test_setup_target():
             }), 400
 
         if 'snmp' in local_driver.lower():
-            snmp_community = str(target.get('snmp_community') or '').strip()
-            if not snmp_community:
+            snmp_errors = validate_snmp_settings(target)
+            if snmp_errors:
                 return jsonify({
                     'success': False,
-                    'message': 'SNMP community string is required when using snmp-ups.',
+                    'message': ' '.join(snmp_errors),
                     'metrics': {},
                 }), 400
 
@@ -1268,9 +1281,13 @@ def save_multi_nut_targets(engine, metadata, data, nut_mode, command_path, curre
             )
 
     primary_ups_name = str(data.get('ups_name') or data.get('remote_ups_name') or 'ups').strip() or 'ups'
-    primary_host = str(
-        data.get('ups_host') or data.get('remote_host') or data.get('server_address') or '127.0.0.1'
-    ).strip() or '127.0.0.1'
+    normalized_nut_mode = normalize_target_mode(nut_mode)
+    if normalized_nut_mode == 'netclient':
+        primary_host = str(
+            data.get('ups_host') or data.get('remote_host') or '127.0.0.1'
+        ).strip() or '127.0.0.1'
+    else:
+        primary_host = '127.0.0.1'
     primary_port = 3493
     if normalize_target_mode(nut_mode) == 'netclient':
         primary_port = coerce_int(data.get('remote_port'), 3493, 1, 65535)
@@ -1793,8 +1810,6 @@ def render_local_ups_section(target):
     driver = str(target.get('local_driver') or '').strip()
     port = str(target.get('local_port') or '').strip()
     description = str(target.get('local_description') or target.get('name') or ups_name).strip()
-    snmp_version = str(target.get('snmp_version') or 'v1').strip() or 'v1'
-    snmp_community = str(target.get('snmp_community') or '').strip()
     usb_vendorid = str(target.get('usb_vendorid') or '').strip()
     usb_productid = str(target.get('usb_productid') or '').strip()
     usb_serial = str(target.get('usb_serial') or '').strip()
@@ -1817,8 +1832,7 @@ def render_local_ups_section(target):
         "    group = nut\n"
     )
     if 'snmp' in driver.lower():
-        section += f"    snmp_version = {quote_conf_value(snmp_version)}\n"
-        section += f"    community = {quote_conf_value(snmp_community or 'public')}\n"
+        section += '\n'.join(render_snmp_lines(target)) + '\n'
     elif 'usbhid-ups' in driver.lower():
         if usb_vendorid:
             section += f"    vendorid = {quote_conf_value(usb_vendorid)}\n"
@@ -1902,20 +1916,7 @@ def apply_primary_snmp_settings(conf_files, payload):
     if not ups_conf.strip():
         return updated
 
-    snmp_version = str(payload.get('snmp_version') or 'v1').strip() or 'v1'
-    snmp_community = str(payload.get('snmp_community') or 'public').strip() or 'public'
-
-    if not re.search(r'^\s*snmp_version\s*=', ups_conf, re.IGNORECASE | re.MULTILINE):
-        if not ups_conf.endswith('\n'):
-            ups_conf += '\n'
-        ups_conf += f"    snmp_version = {quote_conf_value(snmp_version)}\n"
-
-    if not re.search(r'^\s*community\s*=', ups_conf, re.IGNORECASE | re.MULTILINE):
-        if not ups_conf.endswith('\n'):
-            ups_conf += '\n'
-        ups_conf += f"    community = {quote_conf_value(snmp_community)}\n"
-
-    updated['ups.conf'] = ups_conf
+    updated['ups.conf'] = append_missing_snmp_lines(ups_conf, payload)
     return updated
 
 
@@ -2253,7 +2254,17 @@ def save_config():
         JSON: Status and message.
     """
     try:
-        data = request.get_json()
+        data = normalize_primary_network_endpoint(request.get_json())
+
+        endpoint_errors = validate_primary_network_endpoint(data)
+        endpoint_errors.extend(
+            validate_ups_conf_network_endpoints(data.get('ups_conf', ''))
+        )
+        if endpoint_errors:
+            return jsonify({
+                'status': 'error',
+                'message': ' '.join(dict.fromkeys(endpoint_errors)),
+            }), 400
         
         # Extract NUT mode and connection scenario from data
         nut_mode = data.get('nut_mode', 'standalone')
@@ -2796,7 +2807,7 @@ def generate_config_preview():
     """
     try:
         # Get data from request
-        data = request.json
+        data = normalize_primary_network_endpoint(request.json)
         mode = data.get('mode')
         monitoring_profile = normalize_monitoring_profile(data.get('monitoring_profile', 'single'))
         multi_topology = normalize_multi_topology(data.get('multi_topology'))
@@ -2815,6 +2826,13 @@ def generate_config_preview():
             return jsonify({
                 'status': 'error',
                 'message': 'Missing required parameter: mode'
+            }), 400
+
+        endpoint_errors = validate_primary_network_endpoint(data)
+        if endpoint_errors:
+            return jsonify({
+                'status': 'error',
+                'message': ' '.join(endpoint_errors),
             }), 400
         
         # Get the configuration manager instance

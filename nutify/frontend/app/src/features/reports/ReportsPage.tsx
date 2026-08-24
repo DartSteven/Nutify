@@ -19,6 +19,7 @@ import {
 } from '../../lib/api/reports'
 import { getMailConfigs } from '../../lib/api/settings'
 import { useAppStore } from '../../store/appStore'
+import { resolveRollingPeriod } from '../../lib/utils/reportPeriods'
 
 type ScheduleRow = {
   id: number
@@ -31,12 +32,56 @@ type ScheduleRow = {
 }
 
 const REPORT_OPTIONS = ['energy', 'power', 'battery', 'voltage', 'events', 'ups_info']
+const REPORT_TYPE_OPTIONS = [
+  { value: 'custom', label: 'Custom' },
+  { value: 'yesterday', label: 'Yesterday' },
+  { value: 'last_week', label: 'Last 7 Days' },
+  { value: 'last_month', label: 'Last 30 Days' },
+  { value: 'last_year', label: 'Last 12 Months' },
+  { value: 'daily', label: 'Daily' },
+  { value: 'weekly', label: 'Weekly' },
+  { value: 'monthly', label: 'Monthly' },
+]
+const SCHEDULE_PERIOD_OPTIONS = [
+  { value: 'yesterday', label: 'Yesterday' },
+  { value: 'last_week', label: 'Last 7 Days' },
+  { value: 'last_month', label: 'Last 30 Days' },
+  { value: 'last_year', label: 'Last 12 Months' },
+  { value: 'weekly', label: 'Weekly' },
+  { value: 'monthly', label: 'Monthly' },
+  { value: 'range', label: 'Range' },
+]
 
 function todayIsoDate() {
   return new Date().toISOString().slice(0, 10)
 }
 
+function dateInputValue(value: Date) {
+  const year = value.getFullYear()
+  const month = String(value.getMonth() + 1).padStart(2, '0')
+  const day = String(value.getDate()).padStart(2, '0')
+  return `${year}-${month}-${day}`
+}
+
+function rangeForPreset(preset: string): { from: string; to: string } | null {
+  const now = new Date()
+
+  if (preset === 'yesterday') {
+    const yesterday = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1)
+    return { from: dateInputValue(yesterday), to: dateInputValue(yesterday) }
+  }
+
+  if (preset === 'last_week' || preset === 'last_month' || preset === 'last_year') {
+    return resolveRollingPeriod(preset, now)
+  }
+
+  return null
+}
+
 function asScheduleRows(payload: unknown): ScheduleRow[] {
+  if (!payload || typeof payload !== 'object' || Array.isArray(payload)) {
+    return []
+  }
   const body = payload as Record<string, unknown>
   const data = Array.isArray(body.data) ? body.data : []
   return data.map((item) => {
@@ -89,9 +134,14 @@ export function ReportsPage() {
     const data = body && Array.isArray(body.data) ? body.data : []
     return data.map((item) => {
       const row = item as Record<string, unknown>
+      const username = String(row.username ?? '').trim()
+      const toEmail = String(row.to_email ?? '').trim()
+      const fromEmail = String(row.from_email ?? '').trim()
+      const smtpServer = String(row.smtp_server ?? '').trim()
+      const fallbackLabel = toEmail || fromEmail || username || smtpServer || `Config ${String(row.id ?? '')}`
       return {
         id: Number(row.id ?? 0),
-        label: String(row.username ?? `Config ${String(row.id ?? '')}`),
+        label: fallbackLabel,
       }
     })
   }, [mailPayload])
@@ -107,6 +157,15 @@ export function ReportsPage() {
     mail_config_id: scheduleMailConfigId ?? 0,
     enabled: scheduleEnabled,
   })
+
+  const applyReportPreset = (preset: string) => {
+    const range = rangeForPreset(preset)
+    if (!range) {
+      return
+    }
+    setFromDate(range.from)
+    setToDate(range.to)
+  }
 
   const handleGenerateReport = async () => {
     setPendingAction('generate')
@@ -214,11 +273,20 @@ export function ReportsPage() {
           </label>
           <label className="field-group">
             <span className="field-label">Report type</span>
-            <select className="input-base" value={reportType} onChange={(event) => setReportType(event.target.value)}>
-              <option value="custom">Custom</option>
-              <option value="daily">Daily</option>
-              <option value="weekly">Weekly</option>
-              <option value="monthly">Monthly</option>
+            <select
+              className="input-base"
+              value={reportType}
+              onChange={(event) => {
+                const nextType = event.target.value
+                setReportType(nextType)
+                applyReportPreset(nextType)
+              }}
+            >
+              {REPORT_TYPE_OPTIONS.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
             </select>
           </label>
           <label className="field-group">
@@ -230,6 +298,21 @@ export function ReportsPage() {
               placeholder="ops@example.com,alerts@example.com"
             />
           </label>
+        </div>
+        <div className="flex flex-wrap gap-2 text-xs">
+          {REPORT_TYPE_OPTIONS.filter((option) => option.value.startsWith('last_') || option.value === 'yesterday').map((option) => (
+            <button
+              key={option.value}
+              className="rounded-lg border border-slate-700 px-3 py-1.5 text-slate-200 hover:border-slate-500"
+              type="button"
+              onClick={() => {
+                setReportType(option.value)
+                applyReportPreset(option.value)
+              }}
+            >
+              {option.label}
+            </button>
+          ))}
         </div>
         <div className="flex flex-wrap gap-2">
           <button className="btn-primary" type="button" disabled={pendingAction === 'generate'} onClick={() => void handleGenerateReport()}>
@@ -269,10 +352,11 @@ export function ReportsPage() {
           <label className="field-group">
             <span className="field-label">Period type</span>
             <select className="input-base" value={schedulePeriodType} onChange={(event) => setSchedulePeriodType(event.target.value)}>
-              <option value="yesterday">Yesterday</option>
-              <option value="weekly">Weekly</option>
-              <option value="monthly">Monthly</option>
-              <option value="range">Range</option>
+              {SCHEDULE_PERIOD_OPTIONS.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
             </select>
           </label>
           <label className="field-group">

@@ -1,0 +1,318 @@
+.authentication-shell {
+  --auth-ink: #172b3d;
+  --auth-muted: #5f7283;
+  --auth-line: rgba(45, 76, 101, 0.18);
+  --auth-accent: #20b8a6;
+  --auth-blue: #238bd2;
+  display: grid;
+  gap: 1.1rem;
+}
+
+.authentication-hero {
+  --auth-ink: #edf8ff;
+  --auth-muted: #bed1df;
+  position: relative;
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  min-height: 165px;
+  padding: 2rem;
+  overflow: hidden;
+  color: var(--auth-ink);
+  border: 1px solid var(--auth-line);
+  border-radius: 18px;
+  background:
+    radial-gradient(circle at 82% 18%, rgba(32, 184, 166, 0.22), transparent 30%),
+    linear-gradient(130deg, #101c2a 0%, #132a3a 58%, #0e3440 100%);
+}
+
+.authentication-hero::after {
+  position: absolute;
+  right: -35px;
+  bottom: -85px;
+  width: 260px;
+  height: 260px;
+  content: '';
+  border: 1px solid rgba(98, 219, 207, 0.2);
+  border-radius: 50%;
+  box-shadow: 0 0 0 28px rgba(98, 219, 207, 0.04), 0 0 0 58px rgba(98, 219, 207, 0.025);
+}
+
+.authentication-hero h2 {
+  margin: 0.25rem 0 0.35rem;
+  font-size: clamp(2rem, 4vw, 3.4rem);
+  line-height: 1;
+  letter-spacing: -0.045em;
+}
+
+.authentication-hero p,
+.auth-config-heading p,
+.auth-method-card p,
+.auth-registration-box p,
+.auth-readonly-panel p {
+  margin: 0;
+  color: var(--auth-muted);
+}
+
+.auth-kicker {
+  color: #70dfd2;
+  font-size: 0.7rem;
+  font-weight: 800;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+.auth-status-pill {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  padding: 0.55rem 0.8rem;
+  color: #b9c7d5;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 999px;
+  background: rgba(5, 12, 20, 0.46);
+}
+
+.auth-status-pill span {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #718096;
+}
+
+.auth-status-pill.active span {
+  background: #39d2a5;
+  box-shadow: 0 0 0 5px rgba(57, 210, 165, 0.13);
+}
+
+.auth-message {
+  padding: 0.9rem 1rem;
+  color: #baf5df;
+  border: 1px solid rgba(57, 210, 165, 0.28);
+  border-radius: 10px;
+  background: rgba(24, 137, 107, 0.13);
+}
+
+.auth-message.danger {
+  color: #ffc9c9;
+  border-color: rgba(239, 91, 91, 0.32);
+  background: rgba(174, 45, 45, 0.14);
+}
+
+.auth-method-strip,
+.auth-config-layout {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+}
+
+.auth-method-card {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 1rem;
+  padding: 1.1rem;
+  border: 1px solid var(--auth-line);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.78);
+}
+
+.auth-method-card > i {
+  display: grid;
+  width: 42px;
+  height: 42px;
+  color: #88a1b8;
+  font-size: 1.05rem;
+  place-items: center;
+  border-radius: 12px;
+  background: rgba(93, 121, 147, 0.12);
+}
+
+.auth-method-card h3,
+.auth-config-heading h3,
+.auth-registration-box h4,
+.auth-readonly-panel h3 {
+  margin: 0 0 0.25rem;
+  color: var(--auth-ink);
+}
+
+.auth-method-card > span {
+  color: #8ea3b5;
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+.auth-method-card.active > i,
+.auth-method-card.active > span {
+  color: #59d8c8;
+}
+
+.auth-config-layout {
+  grid-template-columns: minmax(0, 1.7fr) minmax(285px, 0.8fr);
+  align-items: start;
+}
+
+.auth-config-panel {
+  padding: 1.35rem;
+  border: 1px solid var(--auth-line);
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.78);
+}
+
+.auth-config-heading {
+  display: flex;
+  gap: 0.85rem;
+  margin-bottom: 1.2rem;
+}
+
+.auth-step {
+  display: grid;
+  flex: 0 0 auto;
+  width: 34px;
+  height: 34px;
+  color: #75ded2;
+  font-size: 0.72rem;
+  font-weight: 800;
+  place-items: center;
+  border: 1px solid rgba(70, 205, 190, 0.35);
+  border-radius: 50%;
+}
+
+.auth-config-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+}
+
+.auth-config-field {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 0.4rem;
+  color: #263e52;
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
+.auth-config-field input,
+.auth-registration-box input {
+  width: 100%;
+  padding: 0.72rem 0.78rem;
+  color: #172b3d;
+  border: 1px solid rgba(141, 166, 188, 0.24);
+  border-radius: 9px;
+  outline: none;
+  background: rgba(240, 247, 251, 0.8);
+}
+
+.auth-config-field input:focus,
+.auth-registration-box input:focus {
+  border-color: var(--auth-accent);
+  box-shadow: 0 0 0 3px rgba(32, 184, 166, 0.11);
+}
+
+.auth-config-field small,
+.auth-check-row small,
+.auth-validation-list small {
+  display: block;
+  color: #8193a5;
+  font-size: 0.7rem;
+  font-weight: 400;
+  line-height: 1.35;
+}
+
+.auth-advanced {
+  margin: 1.25rem 0;
+  padding: 0.9rem;
+  border: 1px solid var(--auth-line);
+  border-radius: 11px;
+}
+
+.auth-advanced summary {
+  color: #263e52;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.auth-advanced[open] summary {
+  margin-bottom: 1rem;
+}
+
+.auth-check-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.65rem;
+  margin-top: 0.9rem;
+  color: #263e52;
+}
+
+.auth-check-warning {
+  padding: 0.65rem;
+  border-radius: 8px;
+  background: rgba(230, 166, 57, 0.08);
+}
+
+.auth-action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  width: 100%;
+  padding: 0.7rem 0.9rem;
+  color: #263e52;
+  font-weight: 700;
+  border: 1px solid rgba(136, 164, 188, 0.25);
+  border-radius: 9px;
+  background: rgba(71, 99, 124, 0.12);
+  cursor: pointer;
+}
+
+.auth-action:hover:not(:disabled) { border-color: rgba(77, 201, 187, 0.7); }
+.auth-action:disabled { opacity: 0.42; cursor: not-allowed; }
+.auth-action-primary { background: linear-gradient(100deg, #148b84, #187eb2); }
+.auth-action-primary { color: #fff; }
+.auth-action-success { color: #0b3028; border-color: #43cfad; background: #55dab8; }
+.auth-action-danger { color: #ffd5d5; border-color: rgba(234, 95, 95, 0.5); background: rgba(156, 47, 47, 0.24); }
+
+.auth-validation-rail { position: sticky; top: 1rem; }
+.auth-validation-list { display: grid; gap: 0.7rem; margin: 0; padding: 0; list-style: none; }
+.auth-validation-list li { display: flex; align-items: center; gap: 0.7rem; padding: 0.75rem; color: #94a5b5; border: 1px solid var(--auth-line); border-radius: 10px; }
+.auth-validation-list li > i { width: 24px; text-align: center; }
+.auth-validation-list li.complete { color: #69dcc3; border-color: rgba(65, 205, 173, 0.3); background: rgba(65, 205, 173, 0.07); }
+.auth-validation-list li.failed { color: #ff9b9b; border-color: rgba(238, 89, 89, 0.28); }
+.auth-validation-actions { display: grid; gap: 0.6rem; margin-top: 1rem; }
+.auth-registration-box { display: grid; gap: 0.65rem; margin-top: 1rem; padding: 1rem; border: 1px dashed rgba(49, 183, 168, 0.4); border-radius: 11px; }
+.auth-delete-link { width: 100%; margin-top: 1rem; color: #e98b8b; border: 0; background: transparent; cursor: pointer; }
+.auth-copy-link { margin: 0.75rem 0 0; padding: 0; color: #68cfc4; border: 0; background: transparent; cursor: pointer; }
+.auth-readonly-panel { display: flex; align-items: center; gap: 1rem; }
+.auth-readonly-panel > i { color: #66d5c7; font-size: 1.5rem; }
+
+@media (max-width: 900px) {
+  .auth-config-layout,
+  .auth-method-strip { grid-template-columns: 1fr; }
+  .auth-validation-rail { position: static; }
+}
+
+@media (max-width: 620px) {
+  .authentication-hero { align-items: flex-start; flex-direction: column; gap: 1rem; padding: 1.35rem; }
+  .auth-config-grid { grid-template-columns: 1fr; }
+  .auth-method-card { grid-template-columns: auto 1fr; }
+  .auth-method-card > span { grid-column: 2; }
+}
+
+:root[data-theme=dark] .authentication-shell {
+  --auth-ink: #e8f0f7;
+  --auth-muted: #93a4b6;
+  --auth-line: rgba(142, 174, 201, 0.2);
+}
+
+:root[data-theme=dark] .auth-config-panel,
+:root[data-theme=dark] .auth-method-card { background: #111a26; }
+:root[data-theme=dark] .auth-config-field,
+:root[data-theme=dark] .auth-advanced summary,
+:root[data-theme=dark] .auth-check-row,
+:root[data-theme=dark] .auth-action { color: #dbe7f1; }
+:root[data-theme=dark] .auth-config-field input,
+:root[data-theme=dark] .auth-registration-box input { color: #e8f0f7; background: rgba(6, 13, 21, 0.28); }

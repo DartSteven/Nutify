@@ -27,6 +27,7 @@ export const DEFAULT_MAIL_FORM: MailFormState = {
 
 export const DEFAULT_REPORT_SETTINGS: ReportSettingsState = {
   selectedReports: [],
+  periodType: 'yesterday',
   fromDate: '',
   toDate: '',
   mailConfigId: '',
@@ -54,8 +55,9 @@ export const REPORT_TYPE_OPTIONS = [
 export const PERIOD_TYPE_OPTIONS = [
   { value: '', label: 'Select Report Period' },
   { value: 'yesterday', label: 'Yesterday (00:00 - 24:00)' },
-  { value: 'last_week', label: 'Last Week (Mon-Sun)' },
-  { value: 'last_month', label: 'Last Month' },
+  { value: 'last_week', label: 'Last 7 Days' },
+  { value: 'last_month', label: 'Last 30 Days' },
+  { value: 'last_year', label: 'Last 12 Months' },
   { value: 'range', label: 'Select Range' },
 ]
 

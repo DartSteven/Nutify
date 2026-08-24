@@ -8,6 +8,7 @@ import requests
 from core.logger import system_logger
 from core.notifications import (
     build_notification_card,
+    fill_missing_target_metrics,
     normalize_event_code,
     normalize_render_mode,
     render_notification_card_png,
@@ -233,12 +234,18 @@ def test_notification(config, event_type=None):
 
         if normalized_event:
             title = f"Test: {normalized_event}"
+            target_id = cfg.get('target_id')
+            try:
+                target_id = int(target_id) if target_id is not None else None
+            except (TypeError, ValueError):
+                target_id = None
             card = build_notification_card(
                 normalized_event,
                 server_name=server_name,
+                target_id=target_id,
                 target_name=str(cfg.get('display_name') or cfg.get('name') or 'Telegram'),
                 target_label='notify-test',
-                metrics={},
+                metrics=fill_missing_target_metrics(target_id),
                 reason='manual test',
             )
             if notifier.render_mode == 'graphic':

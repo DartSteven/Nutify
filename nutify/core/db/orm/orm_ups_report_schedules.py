@@ -22,7 +22,7 @@ class ReportSchedule:
     reports = Column(String(200), nullable=False)  # Comma-separated list of report types
     email = Column(String(255))  # Email to send report to
     mail_config_id = Column(Integer)  # ID of the mail configuration to use
-    period_type = Column(String(10), nullable=False, default='daily')  # yesterday, last_week, last_month, range
+    period_type = Column(String(10), nullable=False, default='daily')  # yesterday, last_week, last_month, last_year, range
     from_date = Column(DateTime(timezone=True))  # Start date for 'range' period_type
     to_date = Column(DateTime(timezone=True))  # End date for 'range' period_type
     enabled = Column(Boolean, default=True)

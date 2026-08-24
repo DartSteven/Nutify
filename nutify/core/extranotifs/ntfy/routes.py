@@ -53,6 +53,8 @@ def create_blueprint():
     def test_ntfy():
         from core.extranotifs.ntfy.ntfy import test_notification
         config_data = request.json
+        if isinstance(config_data, dict) and request.args.get('target_id'):
+            config_data['target_id'] = request.args.get('target_id')
         result = test_notification(config_data)
         return jsonify(result)
     
@@ -64,6 +66,8 @@ def create_blueprint():
         
         event_type = request.args.get('event_type')
         config = get_config_by_id(config_id)
+        if isinstance(config, dict) and request.args.get('target_id'):
+            config['target_id'] = request.args.get('target_id')
         
         if not config:
             return jsonify({"success": False, "message": "Configuration not found"}), 404

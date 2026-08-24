@@ -2,7 +2,7 @@
 NUT Paths Module
 
 This module provides centralized access to NUT configuration paths and commands.
-The paths are loaded from the config/settings_path.txt file.
+The paths are loaded from the runtime-appropriate configuration file.
 """
 
 import os
@@ -12,9 +12,21 @@ import logging
 # Set up logger
 logger = logging.getLogger('system')
 
-# Path to the settings_path.txt file
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
-CONFIG_PATH = BASE_DIR / 'config' / 'settings_path.txt'
+
+
+def resolve_config_path():
+    """Select an explicit override, Docker paths, or local development paths."""
+    override = str(os.environ.get('NUTIFY_PATH_SETTINGS_FILE') or '').strip()
+    if override:
+        return Path(override).expanduser().resolve()
+    docker_path = BASE_DIR / 'config' / 'settings_path_Docker.txt'
+    if Path('/.dockerenv').exists() and docker_path.exists():
+        return docker_path
+    return BASE_DIR / 'config' / 'settings_path.txt'
+
+
+CONFIG_PATH = resolve_config_path()
 
 # Dictionary to store all path settings
 _PATH_SETTINGS = {}
@@ -38,7 +50,7 @@ def parse_value(value):
     return value
 
 def load_path_settings():
-    """Load path settings from config/settings_path.txt"""
+    """Load path settings from the selected runtime configuration file."""
     settings = {}
     
     if not CONFIG_PATH.exists():

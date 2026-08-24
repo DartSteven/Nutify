@@ -35,6 +35,17 @@ export type ViewControl = {
   geoZoom: number
 }
 
+type TooltipData = Record<string, unknown> & {
+  health?: TargetHealth
+  location?: unknown
+}
+
+type TooltipParams = {
+  name?: unknown
+  seriesType?: string
+  data?: TooltipData
+}
+
 export const GLOBE_DISTANCE_MIN = 18
 export const GLOBE_DISTANCE_MAX = 220
 
@@ -65,6 +76,31 @@ const HEALTH_LABELS: Record<TargetHealth, string> = {
   warning: 'Warning',
   critical: 'Critical',
   offline: 'Offline',
+}
+
+function escapeTooltipHtml(value: unknown): string {
+  return String(value ?? '').replace(/[&<>'"]/g, (character) => {
+    const entities: Record<string, string> = {
+      '&': '&amp;',
+      '<': '&lt;',
+      '>': '&gt;',
+      "'": '&#39;',
+      '"': '&quot;',
+    }
+    return entities[character]
+  })
+}
+
+function buildLinkTooltip(data: Record<string, unknown> | undefined, health: string): string {
+  const fromName = escapeTooltipHtml(data?.fromName || 'Primary')
+  const toName = escapeTooltipHtml(data?.toName || 'Target')
+  return `${fromName} &rarr; ${toName}<br/>State: ${health}`
+}
+
+function buildNodeTooltip(params: TooltipParams, health: string): string {
+  const name = escapeTooltipHtml(params.name || 'Target')
+  const location = escapeTooltipHtml(String(params.data?.location || '').trim() || '-')
+  return `<strong>${name}</strong><br/>State: ${health}<br/>Location: ${location}`
 }
 
 let localWorldMapRegistrationPromise: Promise<boolean> | null = null
@@ -125,7 +161,7 @@ export async function ensureLocalWorldMapRegistered(): Promise<boolean> {
           return false
         }
         const geoJson = await response.json()
-        echarts.registerMap('world', geoJson as any)
+        echarts.registerMap('world', geoJson as Parameters<typeof echarts.registerMap>[1])
         return true
       } catch {
         return false
@@ -228,14 +264,13 @@ export function buildGlobeOption(chartPoints: ChartPoint[], viewControl: ViewCon
     backgroundColor: 'transparent',
     tooltip: {
       trigger: 'item',
-      formatter: (params: any) => {
+      formatter: (params: TooltipParams) => {
         if (params.seriesType === 'lines3D') {
           const health = HEALTH_LABELS[(params.data?.health as TargetHealth) || 'online']
-          return `${params.data?.fromName ?? 'Primary'} → ${params.data?.toName ?? 'Target'}<br/>State: ${health}`
+          return buildLinkTooltip(params.data, health)
         }
         const health = HEALTH_LABELS[(params.data?.health as TargetHealth) || 'online']
-        const location = String(params.data?.location || '').trim() || '-'
-        return `<strong>${params.name}</strong><br/>State: ${health}<br/>Location: ${location}`
+        return buildNodeTooltip(params, health)
       },
     },
     globe: {
@@ -320,14 +355,13 @@ export function build2dMapOption(chartPoints: ChartPoint[], viewControl: ViewCon
     backgroundColor: 'transparent',
     tooltip: {
       trigger: 'item',
-      formatter: (params: any) => {
+      formatter: (params: TooltipParams) => {
         if (params.seriesType === 'lines') {
           const health = HEALTH_LABELS[(params.data?.health as TargetHealth) || 'online']
-          return `${params.data?.fromName ?? 'Primary'} → ${params.data?.toName ?? 'Target'}<br/>State: ${health}`
+          return buildLinkTooltip(params.data, health)
         }
         const health = HEALTH_LABELS[(params.data?.health as TargetHealth) || 'online']
-        const location = String(params.data?.location || '').trim() || '-'
-        return `<strong>${params.name}</strong><br/>State: ${health}<br/>Location: ${location}`
+        return buildNodeTooltip(params, health)
       },
     },
     geo: {

@@ -7,6 +7,14 @@
 import { useEffect, useMemo, useRef } from 'react'
 
 import { destroyChartSafely } from '../lib/charts/safeChartDestroy'
+import {
+  REALTIME_FRAME_RATE,
+  pauseRealtimeWhenHidden,
+  resolveChartPixelRatio,
+  resolveRealtimeDelayMs,
+  resolveRealtimeRefreshMs,
+} from '../lib/charts/realtimePerformance'
+import { applyChartJsTheme, resolveChartTheme, watchChartTheme } from '../lib/charts/theme'
 
 type ChartPoint = {
   x: number
@@ -21,7 +29,6 @@ type ChartContext = {
   data: {
     datasets: ChartDataset[]
   }
-  update: (mode?: string) => void
 }
 
 type ChartConstructor = new (
@@ -263,15 +270,12 @@ export function LegacyRealtimeStreamChart({
   }, [series])
 
   const refreshMs = useMemo(() => {
-    const source = Number(pollingIntervalMs)
-    if (!Number.isFinite(source) || source <= 0) {
-      return 1000
-    }
-    return Math.max(300, Math.min(2000, Math.round(source)))
+    return resolveRealtimeRefreshMs(pollingIntervalMs)
   }, [pollingIntervalMs])
 
   useEffect(() => {
     let disposed = false
+    let unwatchTheme = () => {}
 
     const mountChart = async () => {
       let loaded = false
@@ -326,6 +330,7 @@ export function LegacyRealtimeStreamChart({
         fill: Boolean(config.fillColor),
       }))
 
+      const theme = resolveChartTheme()
       const scales = Object.fromEntries(
         axes.map((axis) => [
           axis.id,
@@ -337,14 +342,14 @@ export function LegacyRealtimeStreamChart({
             title: {
               display: true,
               text: axis.title,
-              color: axis.color ?? '#B0BEC5',
+              color: axis.color ?? theme.textColor,
             },
             grid: {
               drawOnChartArea: axis.position === 'left',
-              color: 'rgba(255, 255, 255, 0.08)',
+              color: theme.gridColor,
             },
             ticks: {
-              color: axis.color ?? '#B0BEC5',
+              color: axis.color ?? theme.mutedTextColor,
               callback: axisLabelFormatter(axis),
             },
           },
@@ -389,7 +394,6 @@ export function LegacyRealtimeStreamChart({
           }
         })
 
-        chart.update('quiet')
       }
 
       const chart = new window.Chart(context, {
@@ -400,19 +404,21 @@ export function LegacyRealtimeStreamChart({
         options: {
           responsive: true,
           maintainAspectRatio: false,
+          devicePixelRatio: resolveChartPixelRatio(),
+          normalized: true,
           animation: false,
           plugins: {
             legend: {
               display: true,
               labels: {
-                color: '#FFFFFF',
+                color: theme.textColor,
                 padding: 15,
               },
             },
             tooltip: {
-              backgroundColor: 'rgba(0, 0, 0, 0.75)',
-              titleColor: '#FFFFFF',
-              bodyColor: '#FFFFFF',
+              backgroundColor: theme.tooltipBackground,
+              titleColor: theme.tooltipTextColor,
+              bodyColor: theme.tooltipTextColor,
               callbacks: {
                 label: (tooltipItem: { dataset: { label?: string }; datasetIndex: number; parsed: { y: number } }) => {
                   const config = seriesRef.current[tooltipItem.datasetIndex]
@@ -429,19 +435,19 @@ export function LegacyRealtimeStreamChart({
               realtime: {
                 duration: durationMs,
                 refresh: refreshMs,
-                delay: Math.max(250, Math.min(1000, refreshMs)),
-                frameRate: 30,
-                pause: false,
+                delay: resolveRealtimeDelayMs(refreshMs),
+                frameRate: REALTIME_FRAME_RATE,
+                pause: pauseRealtimeWhenHidden,
                 ttl: durationMs,
                 onRefresh,
               },
               ticks: {
-                color: '#B0BEC5',
+                color: theme.mutedTextColor,
                 autoSkip: true,
                 maxRotation: 0,
               },
               grid: {
-                color: 'rgba(255, 255, 255, 0.05)',
+                color: theme.gridColor,
               },
             },
             ...scales,
@@ -450,12 +456,24 @@ export function LegacyRealtimeStreamChart({
       })
 
       chartRef.current = chart
+      const colorLockedAxes = axes.filter((axis) => axis.color).map((axis) => axis.id)
+      applyChartJsTheme(chart, {
+        preserveTickColors: colorLockedAxes,
+        preserveTitleColors: colorLockedAxes,
+      })
+      unwatchTheme = watchChartTheme(() =>
+        applyChartJsTheme(chart, {
+          preserveTickColors: colorLockedAxes,
+          preserveTitleColors: colorLockedAxes,
+        }),
+      )
     }
 
     void mountChart()
 
     return () => {
       disposed = true
+      unwatchTheme()
       const chart = chartRef.current
       chartRef.current = null
       destroyChartSafely(chart, 'LegacyRealtimeStreamChart')

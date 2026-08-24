@@ -51,23 +51,7 @@ def register_api_routes(app):
                     selected_day=selected_day,
                 )
 
-                # Keep backward compatibility for legacy checks expecting distribution timestamps.
-                distribution_series = build_energy_cost_series(
-                    target_id=target_id,
-                    tz=current_app.CACHE_TIMEZONE,
-                    period=period_type,
-                    from_time=from_time,
-                    to_time=to_time,
-                    selected_date=selected_date,
-                    selected_day=selected_day,
-                )
-                data['distribution'] = [
-                    {
-                        'timestamp': datetime.fromtimestamp(point['x'] / 1000, tz=timezone.utc).isoformat(),
-                        'value': point.get('y', 0.0),
-                    }
-                    for point in distribution_series
-                ]
+                data['distribution'] = []
                 return jsonify(data)
 
             days = request.args.get('days', type=int, default=1)

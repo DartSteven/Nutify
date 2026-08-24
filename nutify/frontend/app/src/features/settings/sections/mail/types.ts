@@ -16,6 +16,7 @@ export type MailConfigRow = {
   smtp_server: string
   smtp_port: string
   username: string
+  from_email: string
   enabled: boolean
   provider: string
   render_mode: string
@@ -59,10 +60,11 @@ export type NotificationSelection = {
 
 export type NotificationSelections = Record<string, NotificationSelection>
 
-export type ReportPeriodType = 'yesterday' | 'last_week' | 'last_month' | 'range'
+export type ReportPeriodType = 'yesterday' | 'last_week' | 'last_month' | 'last_year' | 'range'
 
 export type ReportSettingsState = {
   selectedReports: string[]
+  periodType: ReportPeriodType
   fromDate: string
   toDate: string
   mailConfigId: string

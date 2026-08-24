@@ -178,7 +178,7 @@ export function MultiUpsPage() {
   const cityOptions = useMemo(() => {
     const values = new Set<string>()
     for (const row of runtimeRows) {
-      if (!Boolean(row.target.location_enabled) || !row.locationCity) {
+      if (!row.target.location_enabled || !row.locationCity) {
         continue
       }
       if (selectedCountry !== ALL_LOCATIONS && row.locationCountry !== selectedCountry) {
@@ -201,12 +201,12 @@ export function MultiUpsPage() {
   const filteredRows = useMemo(() => {
     return runtimeRows.filter((row) => {
       if (selectedCountry !== ALL_LOCATIONS) {
-        if (!Boolean(row.target.location_enabled) || row.locationCountry !== selectedCountry) {
+        if (!row.target.location_enabled || row.locationCountry !== selectedCountry) {
           return false
         }
       }
       if (selectedCity !== ALL_LOCATIONS) {
-        if (!Boolean(row.target.location_enabled) || row.locationCity !== selectedCity) {
+        if (!row.target.location_enabled || row.locationCity !== selectedCity) {
           return false
         }
       }

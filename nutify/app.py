@@ -112,6 +112,7 @@ initialize_timezone()
 
 from flask import Flask, render_template, request, jsonify, send_from_directory, redirect, url_for
 from flask_socketio import SocketIO, emit
+from core.socket_config import socketio_server_options
 import datetime
 import sys
 import threading
@@ -314,9 +315,7 @@ app.config['SEND_FILE_MAX_AGE_DEFAULT'] = 0
 secret_key_env = os.getenv('SECRET_KEY')
 if secret_key_env:
     app.config['SECRET_KEY'] = secret_key_env
-    # Log the first 5 characters of the key for debugging
-    key_preview = secret_key_env[:5] if len(secret_key_env) > 5 else "[empty]"
-    logger.info(f"✅ SECRET_KEY set in app config from environment (first 5 chars: {key_preview}...)")
+    logger.info("✅ SECRET_KEY set in app config from environment")
     
     # Verify key length for additional debugging
     if len(secret_key_env) < 16:
@@ -333,9 +332,11 @@ app.events_log = []
 try:
     from core.auth import setup_session_config
     from core.auth.security import init_auth_security
+    from core.auth.oidc import init_oidc_module
 
     setup_session_config(app)
     init_auth_security(app, logger)
+    init_oidc_module(app, logger)
 except Exception as auth_bootstrap_error:
     logger.warning(f"⚠️ Early auth security bootstrap failed: {auth_bootstrap_error}")
 
@@ -539,6 +540,7 @@ if is_fully_configured:
     socketio.init_app(
         app,
         async_mode='eventlet',
+        **socketio_server_options(),
     )
     
     # Helper function to register blueprint only if not already registered
@@ -569,6 +571,7 @@ else:
     socketio.init_app(
         app,
         async_mode='eventlet',
+        **socketio_server_options(),
     )
     
     # Add a route redirect with authentication check
@@ -969,6 +972,7 @@ def init_app():
             try:
                 from core.auth import init_auth_module, setup_session_config
                 from core.auth.security import init_auth_security
+                from core.auth.oidc import reload_oidc_module
                 
                 # Get LoginAuth model from database
                 if hasattr(db, 'ModelClasses') and hasattr(db.ModelClasses, 'LoginAuth'):
@@ -983,6 +987,7 @@ def init_app():
                     init_auth_module(login_model, logger)
                     setup_session_config(app)
                     init_auth_security(app, logger)
+                    reload_oidc_module(app, logger)
                     logger.info("✅ Authentication system initialized successfully")
                 else:
                     logger.warning("⚠️ Authentication system initialization skipped - model not available")

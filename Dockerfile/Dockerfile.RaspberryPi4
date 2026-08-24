@@ -1,7 +1,7 @@
 # Build stage
 FROM python:3.11-slim-bookworm AS builder
 
-ENV NUT_VERSION=2.8.4
+ENV NUT_VERSION=2.8.5
 
 # Install build dependencies
 RUN apt-get update && apt-get install -y --no-install-recommends \
@@ -98,6 +98,7 @@ FROM python:3.11-slim-bookworm
        dpkg-dev \
        libusb-1.0-0 \
        libltdl7 \
+       libffi8 \
        libopenblas0-pthread \
        libgfortran5 \
        msmtp \
@@ -110,6 +111,7 @@ FROM python:3.11-slim-bookworm
        net-tools \
        iputils-ping \
        socat \
+       gosu \
        libudev1 \
        usbutils \
        lsof \
@@ -172,9 +174,9 @@ FROM python:3.11-slim-bookworm
    ENV PATH=/usr/local/bin:$PATH
    COPY nutify/requirements.txt /tmp/
    RUN apt-get update && \
-       apt-get install -y --no-install-recommends gcc libc6-dev && \
+       apt-get install -y --no-install-recommends gcc libc6-dev libffi-dev && \
        pip install --no-cache-dir --prefer-binary --extra-index-url https://www.piwheels.org/simple -r /tmp/requirements.txt && \
-       apt-get purge -y --auto-remove gcc libc6-dev && \
+       apt-get purge -y --auto-remove gcc libc6-dev libffi-dev && \
        apt-get clean && \
        rm -rf /var/lib/apt/lists/* && \
        rm /tmp/requirements.txt
@@ -194,6 +196,7 @@ FROM python:3.11-slim-bookworm
    COPY src/start-services.sh /usr/local/bin/
    COPY src/generate-settings.sh /usr/local/bin/
    COPY nutify/ /app/nutify/
+   COPY nutify/config/settings_path.txt /app/nutify/config/settings_path.txt
    COPY --from=frontend-builder /app/nutify/frontend/app/dist /app/nutify/frontend/app/dist
 
    # Set script permissions and create necessary directories
@@ -213,7 +216,7 @@ FROM python:3.11-slim-bookworm
        ([ -d "/usr/bin" ] && [ "$(ls -A /usr/bin/python* 2>/dev/null)" ] && chmod 755 /usr/bin/python* || true)
 
    # Ensure NUT binaries are in PATH
-   ENV PATH="/usr/bin:/usr/sbin:/root/.local/bin:${PATH}"
+   ENV PATH="/usr/bin:/usr/sbin:/usr/lib/nut:/root/.local/bin:${PATH}"
 
    # Add LD_LIBRARY_PATH to ensure libraries are found
    ENV LD_LIBRARY_PATH=/usr/lib:/lib

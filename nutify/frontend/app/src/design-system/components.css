@@ -1,0 +1,355 @@
+:root[data-ui-skin="next"] #root .stat_card,
+:root[data-ui-skin="next"] #root .chart_card,
+:root[data-ui-skin="next"] #root .combined_card,
+:root[data-ui-skin="next"] #root .options_card,
+:root[data-ui-skin="next"] #root .card-base,
+:root[data-ui-skin="next"] #root .table_info_card,
+:root[data-ui-skin="next"] #root .events_filters,
+:root[data-ui-skin="next"] #root .events_table_container,
+:root[data-ui-skin="next"] #root .ups_info_card,
+:root[data-ui-skin="next"] #root .command-card,
+:root[data-ui-skin="next"] #root .rw-variable-card {
+  color: var(--nx-ink);
+  border: 1px solid var(--nx-line);
+  border-radius: var(--nx-radius-md);
+  background:
+    linear-gradient(145deg, rgba(255, 255, 255, 0.025), transparent 48%),
+    var(--nx-surface);
+  box-shadow: var(--nx-shadow);
+  backdrop-filter: blur(12px);
+}
+
+:root[data-ui-skin="next"] #root .stat_card {
+  min-height: 138px;
+  padding: 1.25rem;
+  align-items: flex-start;
+  gap: 1rem;
+  overflow: hidden;
+}
+
+:root[data-ui-skin="next"] #root .stat_card::after {
+  position: absolute;
+  right: -28px;
+  bottom: -38px;
+  width: 90px;
+  height: 90px;
+  content: "";
+  pointer-events: none;
+  border: 1px solid color-mix(in srgb, var(--nx-teal) 18%, transparent);
+  border-radius: 50%;
+}
+
+:root[data-ui-skin="next"] #root .stat_card:hover {
+  border-color: var(--nx-line-strong);
+  box-shadow: var(--nx-shadow-raised);
+  transform: translateY(-2px);
+}
+
+:root[data-ui-skin="next"] #root .stat_card .stat-icon {
+  display: grid;
+  width: 43px;
+  min-width: 43px;
+  height: 43px;
+  margin: 0;
+  color: var(--nx-teal-bright);
+  border: 1px solid var(--nx-line);
+  border-radius: 12px;
+  background: linear-gradient(140deg, rgba(62, 206, 192, 0.14), rgba(37, 126, 180, 0.08));
+  place-items: center;
+}
+
+:root[data-ui-skin="next"] #root .stat_card .stat-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+:root[data-ui-skin="next"] #root .stat_card .stat-label,
+:root[data-ui-skin="next"][data-theme="dark"] #root .stat_card .stat-label {
+  color: var(--nx-muted) !important;
+  font-size: 0.74rem;
+  font-weight: 750;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+:root[data-ui-skin="next"] #root .stat_card .selected-period,
+:root[data-ui-skin="next"][data-theme="dark"] #root .stat_card .selected-period {
+  color: var(--nx-teal) !important;
+  font-size: 0.66rem;
+  font-weight: 700;
+}
+
+:root[data-ui-skin="next"] #root .stat_card .stat-value,
+:root[data-ui-skin="next"][data-theme="dark"] #root .stat_card .stat-value {
+  color: var(--nx-ink) !important;
+  font-family: var(--nx-font-display);
+  font-size: clamp(1.45rem, 2.2vw, 2.05rem);
+  font-weight: 600;
+  letter-spacing: -0.035em;
+}
+
+:root[data-ui-skin="next"] #root .stat-detail,
+:root[data-ui-skin="next"] #root .stat-row-label,
+:root[data-ui-skin="next"] #root .card_subtitle {
+  color: var(--nx-muted);
+}
+
+:root[data-ui-skin="next"] #root .stat-row-value {
+  color: var(--nx-ink);
+  font-weight: 700;
+}
+
+:root[data-ui-skin="next"] #root .chart_card,
+:root[data-ui-skin="next"] #root .combined_card,
+:root[data-ui-skin="next"] #root .options_card,
+:root[data-ui-skin="next"] #root .card-base {
+  padding: 1.35rem;
+}
+
+:root[data-ui-skin="next"] #root .chart_header,
+:root[data-ui-skin="next"] #root .combined_header,
+:root[data-ui-skin="next"] #root .card_header {
+  margin-bottom: 1rem;
+  padding-bottom: 0.85rem;
+  border-bottom: 1px solid var(--nx-line);
+}
+
+:root[data-ui-skin="next"] #root .chart_header h2,
+:root[data-ui-skin="next"] #root .combined_header h2,
+:root[data-ui-skin="next"] #root .card_header h2,
+:root[data-ui-skin="next"] #root .options_card h2,
+:root[data-ui-skin="next"] #root .card-base h2 {
+  margin: 0;
+  color: var(--nx-ink);
+  font-family: var(--nx-font-display);
+  font-size: 1.08rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+:root[data-ui-skin="next"] #root .chart_header h2::before,
+:root[data-ui-skin="next"] #root .combined_header h2::before,
+:root[data-ui-skin="next"] #root .card_header h2::before {
+  display: inline-block;
+  width: 4px;
+  height: 15px;
+  margin-right: 0.55rem;
+  content: "";
+  vertical-align: -2px;
+  border-radius: 3px;
+  background: linear-gradient(var(--nx-cyan), var(--nx-blue));
+}
+
+:root[data-ui-skin="next"] #root .chart_container {
+  border-radius: 10px;
+}
+
+:root[data-ui-skin="next"] #root .performance-chart-card {
+  height: auto !important;
+  min-height: 500px;
+}
+
+:root[data-ui-skin="next"] #root .options_btn,
+:root[data-ui-skin="next"] #root .btn-primary,
+:root[data-ui-skin="next"] #root .btn-secondary,
+:root[data-ui-skin="next"] #root .database_action_btn,
+:root[data-ui-skin="next"] #root .action-button,
+:root[data-ui-skin="next"] #root button.auth-action {
+  display: inline-flex;
+  min-height: 40px;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.62rem 0.9rem;
+  color: var(--nx-ink);
+  font-size: 0.79rem;
+  font-weight: 750;
+  line-height: 1;
+  text-decoration: none;
+  border: 1px solid var(--nx-line);
+  border-radius: var(--nx-radius-sm);
+  background: var(--nx-panel);
+  box-shadow: inset 0 1px rgba(255, 255, 255, 0.05);
+  cursor: pointer;
+  transition: border-color 160ms ease, color 160ms ease, transform 160ms ease, box-shadow 160ms ease;
+}
+
+:root[data-ui-skin="next"] #root .options_btn:hover,
+:root[data-ui-skin="next"] #root .btn-primary:hover,
+:root[data-ui-skin="next"] #root .btn-secondary:hover,
+:root[data-ui-skin="next"] #root .database_action_btn:hover,
+:root[data-ui-skin="next"] #root .action-button:hover {
+  color: var(--nx-teal-bright);
+  border-color: var(--nx-line-strong);
+  box-shadow: 0 9px 22px rgba(8, 39, 50, 0.12);
+  transform: translateY(-1px);
+}
+
+:root[data-ui-skin="next"] #root .options_btn_primary,
+:root[data-ui-skin="next"] #root .btn-primary,
+:root[data-ui-skin="next"] #root .auth-action-primary {
+  color: #f3ffff !important;
+  border-color: rgba(75, 218, 205, 0.32) !important;
+  background: linear-gradient(105deg, #158f88, #197fb2) !important;
+}
+
+:root[data-ui-skin="next"] #root .options_btn_secondary,
+:root[data-ui-skin="next"] #root .btn-secondary {
+  color: var(--nx-ink);
+  background: color-mix(in srgb, var(--nx-panel) 90%, transparent);
+}
+
+:root[data-ui-skin="next"] #root button:disabled,
+:root[data-ui-skin="next"] #root .options_btn:disabled,
+:root[data-ui-skin="next"] #root .btn-primary:disabled {
+  opacity: 0.42;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}
+
+:root[data-ui-skin="next"] #root input:not([type="checkbox"]):not([type="radio"]):not([type="range"]),
+:root[data-ui-skin="next"] #root select,
+:root[data-ui-skin="next"] #root textarea,
+:root[data-ui-skin="next"] #root .input-base,
+:root[data-ui-skin="next"] #root .options_input,
+:root[data-ui-skin="next"] #root .date-picker {
+  min-height: var(--nx-control-height);
+  box-sizing: border-box;
+  color: var(--nx-ink);
+  border: 1px solid var(--nx-line);
+  border-radius: var(--nx-radius-sm);
+  outline: 0;
+  background: color-mix(in srgb, var(--nx-surface-solid) 72%, transparent);
+  box-shadow: inset 0 1px 2px rgba(3, 13, 21, 0.04);
+  transition: border-color 160ms ease, box-shadow 160ms ease, background 160ms ease;
+}
+
+:root[data-ui-skin="next"] #root input:not([type="checkbox"]):not([type="radio"]):focus,
+:root[data-ui-skin="next"] #root select:focus,
+:root[data-ui-skin="next"] #root textarea:focus,
+:root[data-ui-skin="next"] #root .input-base:focus,
+:root[data-ui-skin="next"] #root .options_input:focus {
+  border-color: var(--nx-teal);
+  background: var(--nx-surface-raised);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--nx-teal) 13%, transparent);
+}
+
+:root[data-ui-skin="next"] #root input::placeholder,
+:root[data-ui-skin="next"] #root textarea::placeholder {
+  color: var(--nx-faint);
+}
+
+:root[data-ui-skin="next"] #root label,
+:root[data-ui-skin="next"] #root .field-label {
+  color: var(--nx-ink);
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+:root[data-ui-skin="next"] #root input[type="checkbox"],
+:root[data-ui-skin="next"] #root input[type="radio"] {
+  accent-color: var(--nx-teal);
+}
+
+:root[data-ui-skin="next"] #root table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  color: var(--nx-ink);
+}
+
+:root[data-ui-skin="next"] #root table thead th {
+  padding: 0.8rem 0.9rem;
+  color: var(--nx-muted);
+  font-size: 0.66rem;
+  font-weight: 800;
+  letter-spacing: 0.09em;
+  text-align: left;
+  text-transform: uppercase;
+  border-bottom: 1px solid var(--nx-line-strong);
+  background: color-mix(in srgb, var(--nx-panel) 80%, transparent);
+}
+
+:root[data-ui-skin="next"] #root table tbody td {
+  padding: 0.85rem 0.9rem;
+  color: var(--nx-ink);
+  border-bottom: 1px solid var(--nx-line);
+}
+
+:root[data-ui-skin="next"] #root table tbody tr {
+  transition: background 150ms ease;
+}
+
+:root[data-ui-skin="next"] #root table tbody tr:hover {
+  background: color-mix(in srgb, var(--nx-teal) 6%, transparent);
+}
+
+:root[data-ui-skin="next"] #root table tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+:root[data-ui-skin="next"] #root .event_badge,
+:root[data-ui-skin="next"] #root .status-badge {
+  border: 1px solid currentColor;
+  border-radius: 999px;
+}
+
+:root[data-ui-skin="next"] #root .event_badge {
+  padding: 0.3rem 0.65rem;
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+}
+
+:root[data-ui-skin="next"] #root .empty-state,
+:root[data-ui-skin="next"] #root .no-events,
+:root[data-ui-skin="next"] #root .no-alerts,
+:root[data-ui-skin="next"] #root .no-schedules,
+:root[data-ui-skin="next"] #root .no-data {
+  color: var(--nx-muted);
+  border: 1px dashed var(--nx-line-strong);
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--nx-panel) 55%, transparent);
+}
+
+:root[data-ui-skin="next"] #root .modal-content,
+:root[data-ui-skin="next"] #root .modal_bar-content,
+:root[data-ui-skin="next"] #root .modal-dialog,
+:root[data-ui-skin="next"] #root .dialog-content {
+  color: var(--nx-ink);
+  border: 1px solid var(--nx-line);
+  border-radius: var(--nx-radius-lg);
+  background: var(--nx-surface-raised);
+  box-shadow: 0 30px 90px rgba(0, 0, 0, 0.33);
+}
+
+:root[data-ui-skin="next"] #root .modal-header,
+:root[data-ui-skin="next"] #root .modal_bar-header {
+  border-color: var(--nx-line);
+}
+
+:root[data-ui-skin="next"] #root code,
+:root[data-ui-skin="next"] #root pre {
+  font-family: "SFMono-Regular", Consolas, monospace;
+}
+
+:root[data-ui-skin="next"] #root pre {
+  color: color-mix(in srgb, var(--nx-ink) 92%, var(--nx-teal));
+  border: 1px solid var(--nx-line);
+  border-radius: 11px;
+  background: color-mix(in srgb, var(--nx-canvas-deep) 88%, transparent);
+}
+
+@media (max-width: 700px) {
+  :root[data-ui-skin="next"] #root .stat_card,
+  :root[data-ui-skin="next"] #root .chart_card,
+  :root[data-ui-skin="next"] #root .combined_card,
+  :root[data-ui-skin="next"] #root .options_card,
+  :root[data-ui-skin="next"] #root .card-base {
+    padding: 1rem;
+  }
+
+}

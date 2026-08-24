@@ -33,7 +33,32 @@ const authEnvelope = z.object({
   permissions: authStatusSchema.shape.permissions,
 })
 
+const oidcConfigSchema = z.object({
+  enabled: z.boolean(),
+  configuration_error: z.boolean().optional().default(false),
+  auto_redirect: z.boolean().optional().default(false),
+  login_url: z.string(),
+  provider_name: z.string(),
+  button_label: z.string(),
+})
+
 export type AuthStatus = z.infer<typeof authStatusSchema>
+export type OidcConfig = z.infer<typeof oidcConfigSchema>
+
+export async function getOidcConfig(): Promise<OidcConfig> {
+  try {
+    return await requestJson('/auth/api/oidc', oidcConfigSchema)
+  } catch {
+    return {
+      enabled: false,
+      configuration_error: false,
+      auto_redirect: false,
+      login_url: '/auth/oidc/login',
+      provider_name: 'SSO',
+      button_label: 'Sign in with SSO',
+    }
+  }
+}
 
 export async function getAuthStatus(): Promise<AuthStatus> {
   const payload = await requestJson('/auth/api/status', authEnvelope)
@@ -65,6 +90,27 @@ export async function login(username: string, password: string): Promise<void> {
     {
       method: 'POST',
       body: JSON.stringify({ username, password }),
+    },
+  )
+}
+
+export async function forgotPassword(
+  username: string,
+  newPassword: string,
+  confirmPassword: string,
+  recoveryKey: string,
+): Promise<void> {
+  await requestJson(
+    '/auth/api/forgot-password',
+    z.object({ success: z.boolean().optional() }).passthrough(),
+    {
+      method: 'POST',
+      body: JSON.stringify({
+        username,
+        new_password: newPassword,
+        confirm_password: confirmPassword,
+        recovery_key: recoveryKey,
+      }),
     },
   )
 }

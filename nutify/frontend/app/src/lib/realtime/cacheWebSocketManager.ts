@@ -31,6 +31,7 @@ type CacheWebSocketOptions = {
 
 const MAX_RECONNECT_ATTEMPTS = 5
 const RECONNECT_DELAY_MS = 5000
+const HTTP_FALLBACK_INTERVAL_MS = 5000
 
 function normalizePayload(payload: unknown): CachePayload {
   if (!payload || typeof payload !== 'object') {
@@ -109,6 +110,7 @@ export function useCacheWebSocketManager({
     }
 
     let reconnectInterval: number | null = null
+    let fallbackSnapshotInterval: number | null = null
     let reconnectAttempts = 0
     let isUnmounted = false
 
@@ -167,6 +169,25 @@ export function useCacheWebSocketManager({
       }
     }
 
+    const startSnapshotFallback = () => {
+      if (fallbackSnapshotInterval || !hasActiveTargetOverride() || isUnmounted) {
+        return
+      }
+      void fetchActiveTargetSnapshotOnce()
+      fallbackSnapshotInterval = window.setInterval(() => {
+        if (!socket.connected && !isUnmounted) {
+          void fetchActiveTargetSnapshotOnce()
+        }
+      }, HTTP_FALLBACK_INTERVAL_MS)
+    }
+
+    const clearSnapshotFallback = () => {
+      if (fallbackSnapshotInterval) {
+        window.clearInterval(fallbackSnapshotInterval)
+        fallbackSnapshotInterval = null
+      }
+    }
+
     const setupReconnection = () => {
       if (reconnectInterval || isUnmounted) {
         return
@@ -208,6 +229,7 @@ export function useCacheWebSocketManager({
     const handleConnect = () => {
       reconnectAttempts = 0
       clearReconnectInterval()
+      clearSnapshotFallback()
       socket.emit('request_cache_data')
       if (hasActiveTargetOverride()) {
         void fetchActiveTargetSnapshotOnce()
@@ -221,6 +243,7 @@ export function useCacheWebSocketManager({
       onDisconnectRef.current?.()
       dispatchStateEvent({ connected: false, reconnecting: false })
       setupReconnection()
+      startSnapshotFallback()
       log('WebSocket disconnected')
     }
 
@@ -232,6 +255,7 @@ export function useCacheWebSocketManager({
         error: error.message || 'Connection error',
       })
       setupReconnection()
+      startSnapshotFallback()
       log(`WebSocket connection error: ${error.message}`, true)
     }
 
@@ -269,6 +293,8 @@ export function useCacheWebSocketManager({
     socket.on('cache_update', handleCacheUpdate)
     socket.on('multi_target_update', handleCacheUpdate)
 
+    startSnapshotFallback()
+
     if (socket.connected) {
       handleConnect()
     } else {
@@ -278,6 +304,7 @@ export function useCacheWebSocketManager({
     return () => {
       isUnmounted = true
       clearReconnectInterval()
+      clearSnapshotFallback()
       socket.off('connect', handleConnect)
       socket.off('disconnect', handleDisconnect)
       socket.off('connect_error', handleConnectError)

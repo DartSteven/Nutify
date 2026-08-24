@@ -15,6 +15,7 @@ import {
 import { LegacyApexChart } from '../../components/LegacyApexChart'
 import { MetricCard } from '../../components/MetricCard'
 import { PageHeader } from '../../components/PageHeader'
+import { OutletGroupPowerPanel } from './OutletGroupPowerPanel'
 import {
   PeriodCompactControl,
   createDefaultPeriodSelection,
@@ -28,6 +29,11 @@ import { getAllUpsData } from '../../lib/api/ups'
 import { useCacheWebSocketManager } from '../../lib/realtime/cacheWebSocketManager'
 import { useAppStore } from '../../store/appStore'
 import {
+  formatChartAxisTimestamp,
+  formatCsvTimestamp,
+  spansMultipleLocalDates,
+} from '../../lib/utils/chartDateTime'
+import {
   aggregateSeries,
   asNullableNumber,
   asRecord,
@@ -40,6 +46,7 @@ import {
   readCurrent,
   readRealtimePower,
 } from './powerPageSupport'
+import { extractRealtimeOutletGroups, mergeOutletGroups, parseOutletGroupsPayload } from './outletGroupSupport'
 
 function parseHasHourData(payload: unknown): boolean {
   if (!payload || typeof payload !== 'object') {
@@ -70,39 +77,13 @@ function notifyRealtimeModeEnforced() {
   }
 }
 
-function formatChartTime(value: number | string, timezone: string): string {
-  const parsed = typeof value === 'number' ? value : Number(value)
-  if (!Number.isFinite(parsed)) {
-    return String(value)
-  }
-  const date = new Date(parsed)
-  if (Number.isNaN(date.getTime())) {
-    return String(value)
-  }
-  try {
-    return date.toLocaleTimeString([], {
-      timeZone: timezone,
-      hour: '2-digit',
-      minute: '2-digit',
-      second: '2-digit',
-      hour12: false,
-    })
-  } catch {
-    return date.toLocaleTimeString([], {
-      hour: '2-digit',
-      minute: '2-digit',
-      second: '2-digit',
-      hour12: false,
-    })
-  }
-}
-
 export function PowerPage() {
   const bootstrap = useAppStore((state) => state.bootstrap)
   const activeTargetId = useAppStore((state) => state.activeTargetId)
   const targets = useAppStore((state) => state.targets)
   const monitoringProfile = bootstrap?.monitoring.monitoring_profile ?? 'single'
   const bootstrapTimezone = bootstrap?.timezone ?? 'UTC'
+  const activeTargetKey = String(activeTargetId ?? 'single')
 
   const [draftPeriod, setDraftPeriod] = useState<PeriodSelection>(createDefaultPeriodSelection)
   const [period, setPeriod] = useState<PeriodSelection>(createDefaultPeriodSelection)
@@ -187,6 +168,15 @@ export function PowerPage() {
     refetchInterval: 15_000,
   })
 
+  const { data: outletGroupsPayload } = useQuery({
+    queryKey: ['power', 'outlet-groups', activeTargetId, period],
+    queryFn: () => {
+      const params = buildStatsQuery(period, createRealtimeWindow())
+      return fetchRawJson(`/api/power/outlet-groups?${params.toString()}`, activeTargetId)
+    },
+    refetchInterval: isRealtimeMode ? 6_000 : 15_000,
+  })
+
   useEffect(() => {
     setLatestSnapshot({})
     latestRealtimeAtRef.current = 0
@@ -228,8 +218,13 @@ export function PowerPage() {
   const metrics = useMemo(() => parseMetricsPayload(metricsPayload), [metricsPayload])
   const stats = useMemo(() => parseStatsPayload(statsPayload), [statsPayload])
   const history = useMemo(() => parseHistoryPayload(historyPayload), [historyPayload])
+  const outletGroupsFromServer = useMemo(() => parseOutletGroupsPayload(outletGroupsPayload).groups, [outletGroupsPayload])
 
   const realtimeData = useMemo(() => asRecord(latestSnapshot), [latestSnapshot])
+  const outletGroups = useMemo(
+    () => mergeOutletGroups(outletGroupsFromServer, extractRealtimeOutletGroups(realtimeData)),
+    [outletGroupsFromServer, realtimeData],
+  )
   const realtimePower = useMemo(() => readRealtimePower(realtimeData), [realtimeData])
   const realtimeInputVoltage = useMemo(() => asNullableNumber(realtimeData.input_voltage), [realtimeData])
   const realtimeLoad = useMemo(() => asNullableNumber(realtimeData.ups_load), [realtimeData])
@@ -294,10 +289,21 @@ export function PowerPage() {
 
   const hasPowerChartData = useMemo(
     () =>
-      chartSeries.some((series) =>
-        series.data.some((point) => Number.isFinite(point.y) && Number(point.y) > 0),
+      !isRealtimeMode || chartSeries.some((series) =>
+        series.data.some((point) => Number.isFinite(point.x) && Number.isFinite(point.y)),
       ),
-    [chartSeries],
+    [chartSeries, isRealtimeMode],
+  )
+
+  const chartSpansMultipleDates = useMemo(
+    () => (
+      (period.mode === 'range' && period.rangeFrom !== period.rangeTo)
+      || spansMultipleLocalDates(
+        chartSeries.flatMap((series) => series.data.map((point) => point.x)),
+        timezone,
+      )
+    ),
+    [chartSeries, period.mode, period.rangeFrom, period.rangeTo, timezone],
   )
 
   const chartOptions = useMemo(() => {
@@ -310,7 +316,10 @@ export function PowerPage() {
           easing: 'linear',
           dynamicAnimation: { speed: 1000 },
         },
-        toolbar: { show: true },
+        toolbar: {
+          show: true,
+          export: { csv: { categoryFormatter: (value: number) => formatCsvTimestamp(value, timezone) } },
+        },
       },
       stroke: {
         curve: 'smooth',
@@ -324,12 +333,12 @@ export function PowerPage() {
         max: chartRange.max,
         labels: {
           datetimeUTC: false,
-          formatter: (value: string) => formatChartTime(value, timezone),
+          formatter: (value: string) => formatChartAxisTimestamp(value, timezone, chartSpansMultipleDates),
         },
       },
       tooltip: {
         x: {
-          formatter: (value: number) => formatChartTime(value, timezone),
+          formatter: (value: number) => formatCsvTimestamp(value, timezone),
         },
         y: { formatter: (value: number) => Number(value).toFixed(1) },
       },
@@ -345,7 +354,7 @@ export function PowerPage() {
         },
       ],
     }
-  }, [chartRange.max, chartRange.min, timezone])
+  }, [chartRange.max, chartRange.min, chartSpansMultipleDates, timezone])
 
   const realtimeAxes = useMemo<RealtimeAxisConfig[]>(
     () => [
@@ -457,6 +466,15 @@ export function PowerPage() {
           </div>
         </article>
       ) : null}
+
+      <OutletGroupPowerPanel
+        groups={outletGroups}
+        isRealtimeMode={isRealtimeMode}
+        latestData={realtimeData}
+        pollingIntervalMs={pollingIntervalMs}
+        timezone={timezone}
+        activeTargetKey={activeTargetKey}
+      />
     </section>
   )
 }

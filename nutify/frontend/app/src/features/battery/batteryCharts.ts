@@ -4,6 +4,12 @@
  * Frontend module used by Nutify React UI flows and state management.
  */
 
+import {
+  formatChartAxisTimestamp,
+  formatCsvTimestamp,
+  spansMultipleLocalDates,
+} from '../../lib/utils/chartDateTime'
+
 export type BatteryPoint = {
   timestamp: number
   value: number
@@ -28,30 +34,6 @@ function toDate(value: number | string): Date | null {
   }
 
   return date
-}
-
-function formatTime(value: number | string, timezone: string): string {
-  const date = toDate(value)
-  if (!date) {
-    return String(value)
-  }
-
-  try {
-    return date.toLocaleTimeString(undefined, {
-      timeZone: timezone,
-      hour: '2-digit',
-      minute: '2-digit',
-      second: '2-digit',
-      hour12: false,
-    })
-  } catch {
-    return date.toLocaleTimeString(undefined, {
-      hour: '2-digit',
-      minute: '2-digit',
-      second: '2-digit',
-      hour12: false,
-    })
-  }
 }
 
 function formatDateTime(value: number | string, timezone: string): string {
@@ -107,7 +89,12 @@ export function buildBatteryCombinedSeries(history: BatteryHistoryPayload) {
   ]
 }
 
-export function buildBatteryCombinedOptions(timezone: string) {
+export function buildBatteryCombinedOptions(
+  timezone: string,
+  timestamps: number[] = [],
+  forceDate = false,
+) {
+  const includeDate = forceDate || spansMultipleLocalDates(timestamps, timezone)
   return {
     chart: {
       type: 'line',
@@ -121,6 +108,7 @@ export function buildBatteryCombinedOptions(timezone: string) {
       },
       toolbar: {
         show: true,
+        export: { csv: { categoryFormatter: (value: number) => formatCsvTimestamp(value, timezone) } },
       },
       noData: {
         text: 'Loading data...',
@@ -140,12 +128,12 @@ export function buildBatteryCombinedOptions(timezone: string) {
       labels: {
         datetimeUTC: false,
         rotate: 0,
-        formatter: (value: string) => formatTime(value, timezone),
+        formatter: (value: string) => formatChartAxisTimestamp(value, timezone, includeDate),
       },
     },
     tooltip: {
       x: {
-        formatter: (value: number) => formatTime(value, timezone),
+        formatter: (value: number) => formatCsvTimestamp(value, timezone),
       },
       y: {
         formatter: (value: number) => Number(value).toFixed(2),
@@ -206,12 +194,17 @@ export function buildBatteryTemperatureSeries(history: BatteryHistoryPayload) {
   ]
 }
 
-export function buildBatteryTemperatureOptions(timezone: string) {
+export function buildBatteryTemperatureOptions(timezone: string, timestamps: number[] = []) {
+  const includeDate = spansMultipleLocalDates(timestamps, timezone)
   return {
     chart: {
       type: 'line',
       height: 350,
       animations: { enabled: true },
+      toolbar: {
+        show: true,
+        export: { csv: { categoryFormatter: (value: number) => formatCsvTimestamp(value, timezone) } },
+      },
     },
     stroke: {
       curve: 'smooth',
@@ -222,7 +215,7 @@ export function buildBatteryTemperatureOptions(timezone: string) {
       labels: {
         datetimeUTC: false,
         rotate: 0,
-        formatter: (value: string) => formatTime(value, timezone),
+        formatter: (value: string) => formatChartAxisTimestamp(value, timezone, includeDate),
       },
     },
     yaxis: {

@@ -3,6 +3,8 @@
 Registers HTTP routes and page handlers for this feature domain.
 """
 
+from __future__ import annotations
+
 from flask import request, jsonify, current_app
 from core.logger import get_logger
 from core.db.ups import db

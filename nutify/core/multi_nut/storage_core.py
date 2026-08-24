@@ -510,16 +510,25 @@ def create_target(payload: Dict[str, object]) -> Dict[str, object]:
     if not ups_name or not host:
         raise ValueError('ups_name and host are required')
 
+    port = coerce_int(payload.get('port', 3493), 3493, 1, 65535)
     existing_names = {item.name for item in Target.query.all()}
     preferred_name = str(payload.get('name', '')).strip() or f"{ups_name}@{host}"
-    target_name = make_default_target_name(preferred_name, existing_names)
+    if preferred_name in existing_names:
+        raise ValueError('Target name already exists')
+    duplicate_identity = Target.query.filter(
+        Target.ups_name == ups_name,
+        Target.host == host,
+        Target.port == port,
+    ).first()
+    if duplicate_identity:
+        raise ValueError('Target with same UPS identifier, host and port already exists')
     location_values = extract_location_payload(payload)
 
     target = Target(
-        name=target_name,
+        name=preferred_name,
         ups_name=ups_name,
         host=host,
-        port=coerce_int(payload.get('port', 3493), 3493, 1, 65535),
+        port=port,
         nut_mode=normalize_mode(payload.get('nut_mode')),
         command_path=str(payload.get('command_path') or UPSC_BIN).strip() or UPSC_BIN,
         source='wizard',
@@ -566,11 +575,11 @@ def update_target(target_id: int, payload: Dict[str, object]) -> Dict[str, objec
     target, policy = get_target_with_policy(target_id)
     if not target:
         raise ValueError('Target not found')
+    Target, _, _ = models()
 
     if 'name' in payload:
         requested_name = str(payload.get('name') or '').strip()
         if requested_name and requested_name != target.name:
-            Target, _, _ = models()
             duplicate = Target.query.filter(Target.name == requested_name, Target.id != target.id).first()
             if duplicate:
                 raise ValueError('Target name already exists')
@@ -618,6 +627,15 @@ def update_target(target_id: int, payload: Dict[str, object]) -> Dict[str, objec
 
     if 'nut_mode' in payload:
         target.nut_mode = normalize_mode(payload.get('nut_mode'))
+
+    duplicate_identity = Target.query.filter(
+        Target.id != target.id,
+        Target.ups_name == target.ups_name,
+        Target.host == target.host,
+        Target.port == target.port,
+    ).first()
+    if duplicate_identity:
+        raise ValueError('Target with same UPS identifier, host and port already exists')
 
     if 'enabled' in payload:
         target.enabled = bool(payload.get('enabled'))

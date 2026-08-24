@@ -25,6 +25,7 @@ import {
   type SystemStats,
 } from './topbarHelpers'
 import { useTopbarTargetSync } from './topbarTargetSync'
+import { AppearanceController } from './AppearanceController'
 import {
   CLOCK_FORMAT_EVENT,
   CLOCK_FORMAT_STORAGE_KEY,
@@ -46,8 +47,6 @@ export function AppTopbar() {
   const [currentTimestamp, setCurrentTimestamp] = useState(Date.now())
   const [clockFormat, setClockFormat] = useState<ClockFormatPreference>(() => getClockFormatPreference())
   const [isTargetMenuOpen, setIsTargetMenuOpen] = useState(false)
-  const [fleetOfflineCount, setFleetOfflineCount] = useState(0)
-  const [fleetAttentionCount, setFleetAttentionCount] = useState(0)
   const [fleetStatusByTarget, setFleetStatusByTarget] = useState<Record<number, string>>({})
   const targetMenuRef = useRef<HTMLDivElement | null>(null)
   const bootstrapTimezone = bootstrap?.timezone ?? 'UTC'
@@ -184,27 +183,15 @@ export function AppTopbar() {
     setFleetStatusByTarget,
   })
 
-  useEffect(() => {
+  const { fleetOfflineCount, fleetAttentionCount } = useMemo(() => {
     if (monitoringProfile !== 'multi') {
-      setFleetOfflineCount(0)
-      setFleetAttentionCount(0)
-      // Keep the same reference when already empty: a fresh {} here re-triggers
-      // this effect (fleetStatusByTarget is a dep) and loops the render cycle.
-      setFleetStatusByTarget((previous) => (Object.keys(previous).length === 0 ? previous : {}))
-      return
-    }
-
-    const enabledTargetIds = targets.map((target) => target.id)
-    if (enabledTargetIds.length === 0) {
-      setFleetOfflineCount(0)
-      setFleetAttentionCount(0)
-      return
+      return { fleetOfflineCount: 0, fleetAttentionCount: 0 }
     }
 
     let offlineCount = 0
     let attentionCount = 0
-    for (const targetId of enabledTargetIds) {
-      const status = fleetStatusByTarget[targetId]
+    for (const target of targets) {
+      const status = fleetStatusByTarget[target.id]
       if (!status) {
         continue
       }
@@ -216,9 +203,21 @@ export function AppTopbar() {
         attentionCount += 1
       }
     }
-    setFleetOfflineCount(offlineCount)
-    setFleetAttentionCount(attentionCount)
+
+    return {
+      fleetOfflineCount: offlineCount,
+      fleetAttentionCount: attentionCount,
+    }
   }, [fleetStatusByTarget, monitoringProfile, targets])
+
+  useEffect(() => {
+    if (monitoringProfile === 'multi') {
+      return
+    }
+    setFleetStatusByTarget((previous) =>
+      Object.keys(previous).length === 0 ? previous : {},
+    )
+  }, [monitoringProfile])
 
   const activeTarget = useMemo(
     () => targets.find((target) => target.id === activeTargetId) ?? null,
@@ -253,20 +252,6 @@ export function AppTopbar() {
     },
     [activeTargetId, navigate, setActiveTargetId],
   )
-
-  const handleThemeToggle = useCallback(() => {
-    const currentTheme = document.documentElement.getAttribute('data-theme') ?? 'dark'
-    const nextTheme = currentTheme === 'dark' ? 'light' : 'dark'
-    document.documentElement.setAttribute('data-theme', nextTheme)
-    window.localStorage.setItem('theme', nextTheme)
-  }, [])
-
-  useEffect(() => {
-    const savedTheme = window.localStorage.getItem('theme')
-    if (savedTheme) {
-      document.documentElement.setAttribute('data-theme', savedTheme)
-    }
-  }, [])
 
   const handleLogout = useCallback(async () => {
     try {
@@ -417,9 +402,7 @@ export function AppTopbar() {
             </div>
 
             <div className="header_top-icons">
-              <button className="theme-toggle" type="button" onClick={handleThemeToggle} title="Toggle theme" aria-label="Toggle theme">
-                <i className="fas fa-circle-half-stroke" aria-hidden="true" />
-              </button>
+              <AppearanceController />
 
               {offlineWarningVisible ? (
                 <span className="header_top-notify" title={`${fleetOfflineCount} UPS target(s) offline`}>

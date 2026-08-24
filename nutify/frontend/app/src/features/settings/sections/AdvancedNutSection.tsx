@@ -75,6 +75,8 @@ export function AdvancedNutSection() {
 
   const [targetForm, setTargetForm] = useState<TargetForm>(DEFAULT_TARGET_FORM)
   const [lastTargetConnectionTest, setLastTargetConnectionTest] = useState<{ fingerprint: string; success: boolean } | null>(null)
+  const [savedTargetConnectionFingerprint, setSavedTargetConnectionFingerprint] = useState<string | null>(null)
+  const [targetActionBusy, setTargetActionBusy] = useState<'save' | 'test' | null>(null)
   const [initialSetupForm, setInitialSetupForm] = useState<InitialSetupForm>(DEFAULT_INITIAL_SETUP)
 
   const filesQuery = useQuery({ queryKey: ['settings', 'advanced', 'files'], queryFn: getAdvancedNutFiles })
@@ -102,20 +104,22 @@ export function AdvancedNutSection() {
   const docsRows = useMemo(() => normalizeDocs(docsQuery.data), [docsQuery.data])
   const targets = targetsQuery.data ?? []
 
-  const fingerprintTargetPayload = (payload: ReturnType<typeof toTargetPayload>) =>
+  const fingerprintTargetConnection = (payload: ReturnType<typeof toTargetPayload>) =>
     JSON.stringify({
-      ...payload,
-      name: payload.name.trim(),
       ups_name: payload.ups_name.trim(),
       host: payload.host.trim(),
-      polling_interval: Number(payload.polling_interval || 1),
-      retention_days: Number(payload.retention_days || 0),
+      port: Number(payload.port || 3493),
+      nut_mode: payload.nut_mode,
     })
 
   const currentTargetPayload = toTargetPayload(targetForm)
+  const isSavingTarget = targetActionBusy === 'save'
+  const isTestingTarget = targetActionBusy === 'test'
+  const currentTargetConnectionFingerprint = fingerprintTargetConnection(currentTargetPayload)
   const canSaveTarget =
-    lastTargetConnectionTest?.success === true &&
-    lastTargetConnectionTest.fingerprint === fingerprintTargetPayload(currentTargetPayload)
+    savedTargetConnectionFingerprint === currentTargetConnectionFingerprint ||
+    (lastTargetConnectionTest?.success === true &&
+      lastTargetConnectionTest.fingerprint === currentTargetConnectionFingerprint)
 
   useEffect(() => {
     if (!selectedFile && files.length > 0) {
@@ -197,6 +201,8 @@ export function AdvancedNutSection() {
   }
 
   const onSaveTarget = async () => {
+    if (targetActionBusy) return
+    setTargetActionBusy('save')
     try {
       const payload = toTargetPayload(targetForm)
       if (!payload.ups_name || !payload.host) {
@@ -267,13 +273,18 @@ export function AdvancedNutSection() {
       setFleetAlert({ tone: 'success', message: `Target saved successfully.${locationMessage}` })
       setTargetForm(DEFAULT_TARGET_FORM)
       setLastTargetConnectionTest(null)
+      setSavedTargetConnectionFingerprint(null)
       await invalidateTargets()
     } catch (error) {
       setFleetAlert({ tone: 'danger', message: error instanceof Error ? error.message : 'Save failed' })
+    } finally {
+      setTargetActionBusy(null)
     }
   }
 
   const onTestTarget = async () => {
+    if (targetActionBusy) return
+    setTargetActionBusy('test')
     try {
       const payload = toTargetPayload(targetForm)
       const result = await testTargetConnection(payload)
@@ -282,7 +293,7 @@ export function AdvancedNutSection() {
         success
           ? {
               success: true,
-              fingerprint: fingerprintTargetPayload(payload),
+              fingerprint: fingerprintTargetConnection(payload),
             }
           : null,
       )
@@ -296,6 +307,8 @@ export function AdvancedNutSection() {
         tone: 'danger',
         message: error instanceof Error ? error.message : 'Connection test failed',
       })
+    } finally {
+      setTargetActionBusy(null)
     }
   }
 
@@ -409,26 +422,33 @@ export function AdvancedNutSection() {
         fleetAlert={fleetAlert}
         targetForm={targetForm}
         canSaveTarget={canSaveTarget}
+        targetSaveBusy={isSavingTarget}
+        targetTestBusy={isTestingTarget}
         targets={targets}
         onTargetFormChange={(updater) =>
           setTargetForm((prev) => {
             const next = updater(prev)
-            if (JSON.stringify(next) !== JSON.stringify(prev)) {
-              setLastTargetConnectionTest(null)
-            }
+            const nextFingerprint = fingerprintTargetConnection(toTargetPayload(next))
+            setLastTargetConnectionTest((current) =>
+              current?.fingerprint === nextFingerprint ? current : null,
+            )
             return next
           })
         }
         onResetTargetForm={() => {
+          setFleetAlert(null)
           setTargetForm(DEFAULT_TARGET_FORM)
           setLastTargetConnectionTest(null)
+          setSavedTargetConnectionFingerprint(null)
         }}
         onSaveTarget={onSaveTarget}
         onTestTarget={onTestTarget}
         onEditTarget={async (target: MultiNutTarget) => {
+          setFleetAlert(null)
           const baseForm = mapTargetToForm(target)
           setTargetForm(baseForm)
           setLastTargetConnectionTest(null)
+          setSavedTargetConnectionFingerprint(fingerprintTargetConnection(toTargetPayload(baseForm)))
           try {
             const scopedConfig = await getVariableConfig(target.id)
             setTargetForm((prev) => {

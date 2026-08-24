@@ -282,14 +282,14 @@ def _rebuild_rollup_bucket(
 
 def update_rollups_after_snapshot(target_id: int, timestamp_utc: datetime, metrics: Dict[str, object]):
     """
-    Update minute rollup and promote boundaries using pandas aggregates.
+    Update minute rollup and keep its complete parent chain current.
 
     Rollup chain:
     - minute: on each new persisted minute snapshot
-    - hour: at local hour boundary
-    - day: at local day boundary
-    - month: at local month boundary
-    - year: at local year boundary
+    - hour/day/month/year: once when a new minute starts
+
+    Updating parent buckets incrementally preserves partial hours and days when
+    polling stops or the application restarts before a calendar boundary.
     """
     Rollup = _rollup_model()
     if Rollup is None:
@@ -299,6 +299,12 @@ def update_rollups_after_snapshot(target_id: int, timestamp_utc: datetime, metri
     tz = _resolve_target_timezone(int(target_id))
 
     minute_local = _bucket_start_local(timestamp_utc.astimezone(tz), 'minute')
+    minute_start_utc = minute_local.astimezone(pytz.UTC)
+    is_new_minute = Rollup.query.filter(
+        Rollup.target_id == int(target_id),
+        Rollup.granularity == 'minute',
+        Rollup.bucket_start_utc == minute_start_utc,
+    ).first() is None
     minute_metrics, _ = _aggregate_with_pandas(
         [
             {
@@ -315,52 +321,21 @@ def update_rollups_after_snapshot(target_id: int, timestamp_utc: datetime, metri
         sample_count=1,
     )
 
-    next_minute_local = tz.normalize(minute_local + timedelta(minutes=1))
-    hour_changed = (
-        next_minute_local.hour != minute_local.hour
-        or next_minute_local.date() != minute_local.date()
+    if not is_new_minute:
+        return
+
+    parent_chain = (
+        ('hour', 'minute'),
+        ('day', 'hour'),
+        ('month', 'day'),
+        ('year', 'month'),
     )
-    day_changed = next_minute_local.date() != minute_local.date()
-    month_changed = (
-        next_minute_local.month != minute_local.month
-        or next_minute_local.year != minute_local.year
-    )
-    year_changed = next_minute_local.year != minute_local.year
-
-    if hour_changed:
-        hour_start_local = _bucket_start_local(minute_local, 'hour')
+    for target_granularity, source_granularity in parent_chain:
         _rebuild_rollup_bucket(
             target_id=int(target_id),
-            target_granularity='hour',
-            source_granularity='minute',
-            bucket_start_local=hour_start_local,
-        )
-
-    if day_changed:
-        day_start_local = _bucket_start_local(minute_local, 'day')
-        _rebuild_rollup_bucket(
-            target_id=int(target_id),
-            target_granularity='day',
-            source_granularity='hour',
-            bucket_start_local=day_start_local,
-        )
-
-    if month_changed:
-        month_start_local = _bucket_start_local(minute_local, 'month')
-        _rebuild_rollup_bucket(
-            target_id=int(target_id),
-            target_granularity='month',
-            source_granularity='day',
-            bucket_start_local=month_start_local,
-        )
-
-    if year_changed:
-        year_start_local = _bucket_start_local(minute_local, 'year')
-        _rebuild_rollup_bucket(
-            target_id=int(target_id),
-            target_granularity='year',
-            source_granularity='month',
-            bucket_start_local=year_start_local,
+            target_granularity=target_granularity,
+            source_granularity=source_granularity,
+            bucket_start_local=_bucket_start_local(minute_local, target_granularity),
         )
 
 
@@ -379,6 +354,13 @@ def load_rollup_history(
 
     Rollup = _rollup_model()
     if Rollup is None:
+        return []
+
+    requested_metrics = tuple(
+        dict.fromkeys(str(name).strip() for name in metric_names if str(name).strip())
+    )
+    if any(not hasattr(Rollup, metric_name) for metric_name in requested_metrics):
+        # Returning no rollup rows makes the caller use raw snapshots for dynamic metrics.
         return []
 
     rows = Rollup.query.filter(
@@ -403,10 +385,9 @@ def load_rollup_history(
             'timestamp_utc': ts.isoformat(),
             '_timestamp': ts,
             '_timestamp_ms': int(ts.timestamp() * 1000),
+            '_sample_count': int(getattr(row, 'sample_count', 0) or 0),
         }
-        for metric_name in metric_names:
-            if hasattr(row, metric_name):
-                payload[metric_name] = getattr(row, metric_name)
+        for metric_name in requested_metrics:
+            payload[metric_name] = getattr(row, metric_name)
         payload_rows.append(payload)
     return payload_rows
-

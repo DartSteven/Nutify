@@ -7,6 +7,14 @@
 import { useEffect, useRef } from 'react'
 
 import { destroyChartSafely } from '../../lib/charts/safeChartDestroy'
+import {
+  REALTIME_FRAME_RATE,
+  pauseRealtimeWhenHidden,
+  resolveChartPixelRatio,
+  resolveRealtimeDelayMs,
+  resolveRealtimeRefreshMs,
+} from '../../lib/charts/realtimePerformance'
+import { applyChartJsTheme, resolveChartTheme, watchChartTheme } from '../../lib/charts/theme'
 
 type ChartPoint = {
   x: number
@@ -21,7 +29,6 @@ type ChartContext = {
   data: {
     datasets: ChartDataset[]
   }
-  update: (mode?: string) => void
 }
 
 type ChartConstructor = new (
@@ -64,9 +71,6 @@ const MAX_POINTS = 220
 const BUFFER_SIZE = 15
 const DEFAULT_POWER = 1
 const DEFAULT_LOAD = 0
-const CHART_REFRESH_MS = 1000
-const CHART_DELAY_MS = 1000
-
 let chartLoaderPromise: Promise<void> | null = null
 
 function sleep(ms: number): Promise<void> {
@@ -261,6 +265,7 @@ export function EnergyRealtimeCostChart({
 
   useEffect(() => {
     let disposed = false
+    let unwatchTheme = () => {}
 
     const mountChart = async () => {
       let loaded = false
@@ -287,6 +292,7 @@ export function EnergyRealtimeCostChart({
       }
 
       const base = extractPowerAndLoad(latestDataRef.current)
+      const refreshMs = resolveRealtimeRefreshMs(pollingIntervalMs)
       fallbackPowerRef.current = base.power
       fallbackLoadRef.current = base.load
 
@@ -297,6 +303,7 @@ export function EnergyRealtimeCostChart({
       const costGradient = context.createLinearGradient(0, 0, 0, 400)
       costGradient.addColorStop(0, 'rgba(0, 200, 83, 0.30)')
       costGradient.addColorStop(1, 'rgba(0, 200, 83, 0.0)')
+      const theme = resolveChartTheme()
 
       const onRefresh = (chart: ChartContext) => {
         const dataset = chart?.data?.datasets?.[0]
@@ -350,7 +357,6 @@ export function EnergyRealtimeCostChart({
           costValue,
         })
 
-        chart.update('quiet')
       }
 
       const chart = new window.Chart(context, {
@@ -373,18 +379,21 @@ export function EnergyRealtimeCostChart({
         options: {
           responsive: true,
           maintainAspectRatio: false,
+          devicePixelRatio: resolveChartPixelRatio(),
+          normalized: true,
+          animation: false,
           plugins: {
             legend: {
               position: 'top',
               labels: {
-                color: '#ffffff',
+                color: theme.textColor,
                 padding: 15,
               },
             },
             tooltip: {
-              backgroundColor: 'rgba(0, 0, 0, 0.7)',
-              titleColor: '#ffffff',
-              bodyColor: '#ffffff',
+              backgroundColor: theme.tooltipBackground,
+              titleColor: theme.tooltipTextColor,
+              bodyColor: theme.tooltipTextColor,
               callbacks: {
                 label: (contextItem: { parsed: { y: number } }) => {
                   const currentPrice = Math.max(priceRef.current, 0)
@@ -394,16 +403,19 @@ export function EnergyRealtimeCostChart({
                 },
               },
             },
-            streaming: {
-              duration: DURATION_MS,
-              refresh: CHART_REFRESH_MS,
-              delay: CHART_DELAY_MS,
-              onRefresh,
-            },
           },
           scales: {
             x: {
               type: 'realtime',
+              realtime: {
+                duration: DURATION_MS,
+                refresh: refreshMs,
+                delay: resolveRealtimeDelayMs(refreshMs),
+                frameRate: REALTIME_FRAME_RATE,
+                pause: pauseRealtimeWhenHidden,
+                ttl: DURATION_MS,
+                onRefresh,
+              },
               time: {
                 unit: 'second',
                 displayFormats: {
@@ -412,11 +424,13 @@ export function EnergyRealtimeCostChart({
               },
               grid: {
                 display: false,
+                color: theme.gridColor,
               },
               ticks: {
                 maxRotation: 0,
                 autoSkip: true,
                 autoSkipPadding: 20,
+                color: theme.mutedTextColor,
               },
             },
             y: {
@@ -431,6 +445,7 @@ export function EnergyRealtimeCostChart({
               },
               grid: {
                 display: false,
+                color: theme.gridColor,
               },
               ticks: {
                 color: '#00c853',
@@ -438,7 +453,7 @@ export function EnergyRealtimeCostChart({
               title: {
                 display: true,
                 text: `Cost (${symbolRef.current})`,
-                color: '#ffffff',
+                color: theme.textColor,
               },
             },
           },
@@ -446,20 +461,19 @@ export function EnergyRealtimeCostChart({
             intersect: false,
             mode: 'nearest',
           },
-          animation: {
-            duration: 1000,
-            easing: 'easeOutQuart',
-          },
         },
       })
 
       chartRef.current = chart
+      applyChartJsTheme(chart, { preserveTickColors: ['y'] })
+      unwatchTheme = watchChartTheme(() => applyChartJsTheme(chart, { preserveTickColors: ['y'] }))
     }
 
     void mountChart()
 
     return () => {
       disposed = true
+      unwatchTheme()
       const chart = chartRef.current
       chartRef.current = null
       destroyChartSafely(chart, 'EnergyRealtimeCostChart')

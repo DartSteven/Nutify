@@ -17,6 +17,21 @@ CANONICAL_EXTRA_FIELDS = {
 }
 
 _token_pattern = re.compile(r'[^a-z0-9]+')
+_RAW_ALIAS_TO_CANONICAL = {
+    # NUT 2.8.5 Arduino HID aliases (UGREEN US3000).
+    'ups.powersummary.percentload': 'ups_load',
+    'ups.powerconverter.output.voltage': 'output_voltage',
+    'ups.powerconverter.input.1.voltage': 'input_voltage',
+}
+_METRIC_DIMENSION_TOKENS = {
+    'charge',
+    'runtime',
+    'voltage',
+    'current',
+    'frequency',
+    'load',
+    'temperature',
+}
 
 
 def _safe_float(value):
@@ -28,7 +43,12 @@ def _safe_float(value):
 
 def dot_to_canonical(dot_key: str) -> str:
     """Convert NUT dot key to canonical underscore key."""
-    return str(dot_key or '').strip().replace('.', '_')
+    raw = str(dot_key or '').strip()
+    alias_lookup_key = re.sub(r'\[(\d+)\]', r'.\1.', raw.lower())
+    alias_lookup_key = re.sub(r'\.+', '.', alias_lookup_key).strip('.')
+    if alias_lookup_key in _RAW_ALIAS_TO_CANONICAL:
+        return _RAW_ALIAS_TO_CANONICAL[alias_lookup_key]
+    return raw.replace('.', '_')
 
 
 def canonical_to_dot(canonical_key: str) -> str:
@@ -155,6 +175,11 @@ def _candidate_score(canonical_key: str, candidate_key: str) -> float:
     canonical_tokens = _tokenize(canonical_norm)
     candidate_tokens = _tokenize(candidate_norm)
     if not canonical_tokens or not candidate_tokens:
+        return 0.0
+
+    canonical_dimensions = set(canonical_tokens) & _METRIC_DIMENSION_TOKENS
+    candidate_dimensions = set(candidate_tokens) & _METRIC_DIMENSION_TOKENS
+    if canonical_dimensions and candidate_dimensions and canonical_dimensions != candidate_dimensions:
         return 0.0
 
     shared_tokens = set(canonical_tokens) & set(candidate_tokens)

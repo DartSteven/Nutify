@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Security vulnerability
+    url: https://github.com/DartSteven/Nutify/security/advisories/new
+    about: Report security issues privately. Never post secrets in a public issue.
+  - name: Documentation and troubleshooting
+    url: https://github.com/DartSteven/Nutify/wiki
+    about: Review setup, Compose, monitoring, and troubleshooting guides first.

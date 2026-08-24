@@ -8,6 +8,7 @@ import { useMemo } from 'react'
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 
 import { useAppStore } from '../../store/appStore'
+import { PageHeader } from '../../components/PageHeader'
 import { PowerFlowSection } from './sections/PowerFlowSection'
 import { ProviderSection } from './sections/ProviderSection'
 import { NotifySection } from './sections/NotifySection'
@@ -19,6 +20,8 @@ import { RenamerSection } from './sections/RenamerSection'
 import { OperationsSection } from './sections/OperationsSection'
 import { AdminSection } from './sections/AdminSection'
 import { AboutSection } from './sections/AboutSection'
+import { ScriptActionsSection } from './sections/ScriptActionsSection'
+import { AuthenticationSection } from './sections/AuthenticationSection'
 
 type SettingsScope = 'target' | 'system'
 
@@ -73,6 +76,14 @@ const SETTINGS_TABS: SettingsTab[] = [
     legacyContentId: 'Advanced_tab',
   },
   {
+    id: 'authentication',
+    label: 'Authentication',
+    icon: 'fa-fingerprint',
+    scope: 'system',
+    legacyDataTab: 'Authentication',
+    legacyContentId: 'Authentication_tab',
+  },
+  {
     id: 'admin',
     label: 'Admin',
     icon: 'fa-user-shield',
@@ -113,6 +124,14 @@ const SETTINGS_TABS: SettingsTab[] = [
     legacyContentId: 'Operations_tab',
   },
   {
+    id: 'scripts',
+    label: 'Scripts',
+    icon: 'fa-terminal',
+    scope: 'target',
+    legacyDataTab: 'Scripts',
+    legacyContentId: 'Scripts_tab',
+  },
+  {
     id: 'about',
     label: 'About',
     icon: 'fa-home-user',
@@ -135,12 +154,30 @@ const TAB_ALIASES: Record<string, string> = {
   report: 'reporter',
   remapper: 'renamer',
   options: 'powerflow',
+  auth: 'authentication',
+  oidc: 'authentication',
+  sso: 'authentication',
 }
 
 const TAB_PERMISSION_ALIASES: Record<string, string[]> = {
   provider: ['provider', 'email', 'extranotifs', 'telegram', 'webhook'],
   notify: ['notify', 'email', 'extranotifs', 'telegram', 'webhook'],
   reporter: ['reporter', 'report', 'email'],
+}
+
+const TAB_DESCRIPTIONS: Record<string, string> = {
+  notify: 'Route UPS events through the configured delivery channels.',
+  reporter: 'Control report generation, delivery, and scheduling for this target.',
+  powerflow: 'Tune target display, electrical calculations, and realtime behavior.',
+  provider: 'Configure mail, ntfy, Telegram, and webhook delivery providers.',
+  advanced: 'Manage NUT runtime, target identity, diagnostics, and clock preferences.',
+  admin: 'Control users, roles, permissions, and account recovery.',
+  database: 'Inspect storage health, retention, backup, and maintenance operations.',
+  log: 'Review application, NUT, event, and delivery diagnostics.',
+  renamer: 'Map vendor-specific NUT variables into Nutify canonical metrics.',
+  operations: 'Build and validate derived values from available UPS telemetry.',
+  scripts: 'Create guarded shell actions triggered by target battery conditions.',
+  about: 'Review release, project, support, and license information.',
 }
 
 function normalizeTabId(value: string | null): string | null {
@@ -195,6 +232,8 @@ function resolveTabFromRoute(pathname: string, searchTab: string | null): string
   if (pathname.startsWith('/options/logs') || pathname.startsWith('/options/log')) return 'log'
   if (pathname.startsWith('/options/renamer')) return 'renamer'
   if (pathname.startsWith('/options/operations')) return 'operations'
+  if (pathname.startsWith('/options/authentication')) return 'authentication'
+  if (pathname.startsWith('/options/scripts')) return 'scripts'
   if (pathname.startsWith('/settings/advanced')) return 'advanced'
   return null
 }
@@ -219,8 +258,12 @@ function renderTab(tabId: string) {
       return <OperationsSection />
     case 'admin':
       return <AdminSection />
+    case 'authentication':
+      return <AuthenticationSection />
     case 'about':
       return <AboutSection />
+    case 'scripts':
+      return <ScriptActionsSection />
     case 'powerflow':
     default:
       return <PowerFlowSection />
@@ -234,7 +277,10 @@ export function SettingsPage() {
   const bootstrap = useAppStore((state) => state.bootstrap)
 
   const isAdmin = Boolean(bootstrap?.settings?.is_admin)
-  const optionsTabs = bootstrap?.settings?.options_tabs ?? {}
+  const optionsTabs = useMemo(
+    () => bootstrap?.settings?.options_tabs ?? {},
+    [bootstrap?.settings?.options_tabs],
+  )
 
   const settingsView = useMemo(
     () =>
@@ -254,6 +300,9 @@ export function SettingsPage() {
         }
         if (tab.id === 'about') {
           return true
+        }
+        if (tab.id === 'authentication') {
+          return isAdmin
         }
         if (isAdmin) {
           return true
@@ -279,6 +328,8 @@ export function SettingsPage() {
     navigate(`/settings?${params.toString()}`)
   }
 
+  const activeTabDefinition = visibleTabs.find((tab) => tab.id === activeTab)
+
   if (!activeTab) {
     return (
       <section className="page">
@@ -293,6 +344,14 @@ export function SettingsPage() {
 
   return (
     <section className="page" data-settings-view={settingsView}>
+      {activeTab !== 'authentication' && activeTabDefinition ? (
+        <PageHeader
+          kicker={`${settingsView} settings`}
+          title={activeTabDefinition.label}
+          subtitle={TAB_DESCRIPTIONS[activeTabDefinition.id] ?? 'Configure Nutify behavior and runtime preferences.'}
+          nextOnly
+        />
+      ) : null}
       <div className="options_tabs">
         {visibleTabs.map((tab) => (
           <button

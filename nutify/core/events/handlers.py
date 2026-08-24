@@ -4,10 +4,8 @@ This module provides functions for handling UPS events.
 Extracted from db_module.py.
 """
 
-import pytz
-from datetime import datetime
+from core.events.time_utils import utc_now
 from core.logger import database_logger as logger
-from flask import current_app
 
 # Will be set during initialization
 db = None
@@ -103,7 +101,7 @@ def handle_ups_event(event_data):
     """
     global UPSEvent, db
     try:
-        now = datetime.now(pytz.UTC)
+        now = utc_now()
         
         # Make sure UPSEvent is initialized
         if UPSEvent is None:

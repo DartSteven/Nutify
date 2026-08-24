@@ -168,8 +168,8 @@ export function registerPrimaryTargetRuntime(ctx) {
       : 0
     const targetTimezone = ctx.actions.normalizeSetupTimezone(isStandalone ? elements.standaloneTimezone?.value : elements.netserverTimezone?.value, 'UTC')
     const targetCurrency = ctx.actions.normalizeSetupCurrency(isStandalone ? elements.standaloneCurrency?.value : elements.netserverCurrency?.value, 'EUR')
-    const snmpCommunity = String(isStandalone ? elements.standaloneSnmpCommunity?.value : elements.netserverSnmpCommunity?.value).trim()
-    const snmpVersion = String(isStandalone ? elements.standaloneSnmpVersion?.value : elements.netserverSnmpVersion?.value).trim() || 'v1'
+    const snmpPrefix = isStandalone ? '' : 'server_'
+    const snmpSettings = ctx.actions.readSnmpSettings(snmpPrefix)
 
     if (!driverValue) {
       ctx.actions.showAlert('Please select a UPS driver for the primary target.', 'error')
@@ -179,9 +179,19 @@ export function registerPrimaryTargetRuntime(ctx) {
       ctx.actions.showAlert('Please enter a UPS port/device for the primary target.', 'error')
       return null
     }
-    if (ctx.actions.isSnmpDriver(driverValue) && !snmpCommunity) {
-      ctx.actions.showAlert('SNMP community is required when using snmp-ups for the primary target.', 'error')
+    if (
+      ctx.actions.inferLocalConnectionTypeFromDriver(driverValue) === 'local_network_driver' &&
+      localPortValue.toLowerCase() === 'auto'
+    ) {
+      ctx.actions.showAlert('Enter the UPS hostname or IP address. Network drivers cannot use auto.', 'error')
       return null
+    }
+    if (ctx.actions.isSnmpDriver(driverValue)) {
+      const snmpError = ctx.actions.validateSnmpSettings(snmpPrefix)
+      if (snmpError) {
+        ctx.actions.showAlert(snmpError, 'error')
+        return null
+      }
     }
     if (
       isManual &&
@@ -239,8 +249,7 @@ export function registerPrimaryTargetRuntime(ctx) {
       is_primary: true,
       timezone: targetTimezone,
       currency: targetCurrency,
-      snmp_community: ctx.actions.isSnmpDriver(driverValue) ? snmpCommunity : '',
-      snmp_version: ctx.actions.isSnmpDriver(driverValue) ? snmpVersion : 'v1',
+      ...(ctx.actions.isSnmpDriver(driverValue) ? snmpSettings : ctx.actions.readSnmpSettings('__disabled_')),
       usb_vendorid: String(selectedPrimaryUsbDevice?.vendorid || '').trim(),
       usb_productid: String(selectedPrimaryUsbDevice?.productid || '').trim(),
       usb_serial: String(selectedPrimaryUsbDevice?.serial || '').trim(),
@@ -268,9 +277,13 @@ export function registerPrimaryTargetRuntime(ctx) {
 
     const primaryWatchedIds = [
       'ups_target_display_name', 'ups_name', 'ups_driver', 'ups_port', 'ups_desc', 'ups_timezone', 'ups_currency', 'ups_polling_interval',
-      'snmp_community', 'snmp_version', 'server_address', 'manual-standalone', 'auto-standalone',
+      'snmp_community', 'snmp_version', 'snmp_sec_level', 'snmp_sec_name', 'snmp_auth_protocol',
+      'snmp_auth_password', 'snmp_priv_protocol', 'snmp_priv_password', 'snmp_mibs',
+      'server_address', 'manual-standalone', 'auto-standalone',
       'server_target_display_name', 'server_ups_name', 'server_ups_driver', 'server_ups_port', 'server_ups_desc', 'server_timezone',
       'server_currency', 'server_polling_interval', 'server_snmp_community', 'server_snmp_version',
+      'server_snmp_sec_level', 'server_snmp_sec_name', 'server_snmp_auth_protocol',
+      'server_snmp_auth_password', 'server_snmp_priv_protocol', 'server_snmp_priv_password', 'server_snmp_mibs',
       'server_address_ns', 'listen_address', 'listen_port', 'nut_admin_user', 'nut_admin_password',
       'manual-netserver', 'auto-netserver',
     ]

@@ -26,6 +26,7 @@ import { getVariableConfig } from '../../lib/api/settings'
 import { getAllUpsData } from '../../lib/api/ups'
 import { useCacheWebSocketManager } from '../../lib/realtime/cacheWebSocketManager'
 import { useAppStore } from '../../store/appStore'
+import { formatCsvTimestamp, spansMultipleLocalDates } from '../../lib/utils/chartDateTime'
 import { VoltageInsightsPanel } from './VoltageInsightsPanel'
 import {
   asNullableNumber,
@@ -231,6 +232,17 @@ export function VoltagePage() {
     return series
   }, [displayNominalVoltage, history.input_voltage, history.input_voltage_nominal, history.output_voltage])
 
+  const voltageChartSpansMultipleDates = useMemo(
+    () => (
+      (period.mode === 'range' && period.rangeFrom !== period.rangeTo)
+      || spansMultipleLocalDates(
+        voltageSeries.flatMap((series) => series.data.map((point) => point.x)),
+        timezone,
+      )
+    ),
+    [period.mode, period.rangeFrom, period.rangeTo, timezone, voltageSeries],
+  )
+
   const voltageOptions = useMemo(() => {
     const metricNames = voltageSeries.map((item) => item.name)
     const colors: string[] = []
@@ -254,7 +266,15 @@ export function VoltagePage() {
       dashArrays.push(5)
     })
     return {
-      chart: { type: 'line', height: 350, animations: { enabled: true, easing: 'linear', dynamicAnimation: { speed: 1000 } } },
+      chart: {
+        type: 'line',
+        height: 350,
+        animations: { enabled: true, easing: 'linear', dynamicAnimation: { speed: 1000 } },
+        toolbar: {
+          show: true,
+          export: { csv: { categoryFormatter: (value: number) => formatCsvTimestamp(value, timezone) } },
+        },
+      },
       stroke: { curve: 'smooth', width: strokeWidths, dashArray: dashArrays },
       colors,
       legend: { show: true, position: 'top' },
@@ -262,17 +282,17 @@ export function VoltagePage() {
         type: 'datetime',
         labels: {
           datetimeUTC: false,
-          formatter: (value: string) => formatVoltageTime(value, timezone),
+          formatter: (value: string) => formatVoltageTime(value, timezone, voltageChartSpansMultipleDates),
         },
       },
       tooltip: {
         x: {
-          formatter: (value: number) => formatVoltageTime(value, timezone),
+          formatter: (value: number) => formatCsvTimestamp(value, timezone),
         },
       },
       yaxis: { labels: { formatter: (value: number) => `${value.toFixed(1)}V` } },
     }
-  }, [timezone, voltageSeries])
+  }, [timezone, voltageChartSpansMultipleDates, voltageSeries])
 
   const transferSeries = useMemo(
     () => [
@@ -285,18 +305,18 @@ export function VoltagePage() {
 
   const hasVoltageChartData = useMemo(
     () =>
-      voltageSeries.some((series) =>
-        series.data.some((point) => Number.isFinite(point.y) && Number(point.y) > 0),
+      !isRealtimeMode || voltageSeries.some((series) =>
+        series.data.some((point) => Number.isFinite(point.x) && Number.isFinite(point.y)),
       ),
-    [voltageSeries],
+    [isRealtimeMode, voltageSeries],
   )
 
   const hasTransferChartData = useMemo(
     () =>
-      transferSeries.some((series) =>
-        series.data.some((point) => Number.isFinite(point.y) && Number(point.y) > 0),
+      !isRealtimeMode || transferSeries.some((series) =>
+        series.data.some((point) => Number.isFinite(point.x) && Number.isFinite(point.y)),
       ),
-    [transferSeries],
+    [isRealtimeMode, transferSeries],
   )
 
   const hasVoltageMonitorCard = isRealtimeMode || hasVoltageChartData
@@ -305,7 +325,15 @@ export function VoltagePage() {
 
   const transferOptions = useMemo(
     () => ({
-      chart: { type: 'line', height: 350, animations: { enabled: true, easing: 'linear', dynamicAnimation: { speed: 1000 } } },
+      chart: {
+        type: 'line',
+        height: 350,
+        animations: { enabled: true, easing: 'linear', dynamicAnimation: { speed: 1000 } },
+        toolbar: {
+          show: true,
+          export: { csv: { categoryFormatter: (value: number) => formatCsvTimestamp(value, timezone) } },
+        },
+      },
       stroke: { curve: 'smooth', width: [2, 2, 1], dashArray: [0, 0, 5] },
       colors: ['#FF4560', '#FF4560', '#546E7A'],
       legend: { show: true, position: 'top' },
@@ -313,17 +341,17 @@ export function VoltagePage() {
         type: 'datetime',
         labels: {
           datetimeUTC: false,
-          formatter: (value: string) => formatVoltageTime(value, timezone),
+          formatter: (value: string) => formatVoltageTime(value, timezone, voltageChartSpansMultipleDates),
         },
       },
       tooltip: {
         x: {
-          formatter: (value: number) => formatVoltageTime(value, timezone),
+          formatter: (value: number) => formatCsvTimestamp(value, timezone),
         },
       },
       yaxis: { labels: { formatter: (value: number) => `${value.toFixed(1)}V` } },
     }),
-    [timezone],
+    [timezone, voltageChartSpansMultipleDates],
   )
 
   const realtimeVoltageAxes = useMemo<RealtimeAxisConfig[]>(

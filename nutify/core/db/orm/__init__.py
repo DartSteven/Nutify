@@ -18,6 +18,8 @@ from core.db.orm.orm_nutify_master_control import (
     init_model as init_master_control_model,
 )
 from core.db.orm.orm_ups_login import LoginAuth, init_model as init_login_model
+from core.db.orm.orm_oidc_identity import OIDCIdentity, init_model as init_oidc_identity_model
+from core.db.orm.orm_oidc_config import OIDCConfig, init_model as init_oidc_config_model
 from core.db.orm.orm_ups_monitor_targets import UPSMonitorTarget, init_model as init_ups_monitor_target_model
 from core.db.orm.orm_ups_monitor_policies import UPSMonitorPolicy, init_model as init_ups_monitor_policy_model
 from core.db.orm.orm_ups_monitor_data import UPSMonitorData, init_model as init_ups_monitor_data_model
@@ -33,6 +35,7 @@ from core.db.orm.orm_ups_monitor_variable_mappings import (
     UPSMonitorVariableMapping,
     init_model as init_ups_monitor_variable_mapping_model,
 )
+from core.db.orm.orm_ups_opt_script_actions import ScriptAction, init_model as init_script_action_model
 
 
 # Dictionary to store initialized models
@@ -132,6 +135,14 @@ def init_models(db_instance, timezone_getter=None):
         Base,
         database_logger
     )
+    _models['OIDCIdentity'] = init_oidc_identity_model(
+        Base,
+        database_logger,
+    )
+    _models['OIDCConfig'] = init_oidc_config_model(
+        Base,
+        database_logger,
+    )
 
     # Initialize Multi-NUT models
     _models['UPSMonitorTarget'] = init_ups_monitor_target_model(
@@ -155,6 +166,10 @@ def init_models(db_instance, timezone_getter=None):
         database_logger
     )
     _models['UPSMonitorVariableMapping'] = init_ups_monitor_variable_mapping_model(
+        Base,
+        database_logger
+    )
+    _models['ScriptAction'] = init_script_action_model(
         Base,
         database_logger
     )
@@ -183,12 +198,15 @@ __all__ = [
     'ReportSchedule',
     'MasterControl',
     'LoginAuth',
+    'OIDCIdentity',
+    'OIDCConfig',
     'UPSMonitorTarget',
     'UPSMonitorPolicy',
     'UPSMonitorData',
     'UPSMonitorRollup',
     'UPSMonitorTargetProfile',
     'UPSMonitorVariableMapping',
+    'ScriptAction',
     # Removed NUTConfig as it's no longer used
     # Removed UPSStaticData and UPSDynamicData from exports
 ]

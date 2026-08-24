@@ -36,6 +36,7 @@ from core.multi_nut.domain_proxy import (
     get_metric_history,
     get_metric_stats,
 )
+from core.report.chart_time_axis import resolve_report_time_axis
 from flask import render_template, jsonify, request, current_app, has_app_context
 import json
 import os
@@ -1470,6 +1471,7 @@ class ReportManager:
                 return fig
             
             timeseries = data['timeseries']
+            axis_title, axis_tickformat = resolve_report_time_axis(timeseries)
             
             # Create the figure for battery data
             fig = make_subplots(specs=[[{"secondary_y": True}]])
@@ -1574,9 +1576,9 @@ class ReportManager:
             )
             
             fig.update_xaxes(
-                title_text="Time",
+                title_text=axis_title,
                 type='date',
-                tickformat='%H:%M',
+                tickformat=axis_tickformat,
                 gridcolor='#f0f0f0'
             )
             
@@ -1611,6 +1613,7 @@ class ReportManager:
                 return fig
             
             timeseries = data['timeseries']
+            axis_title, axis_tickformat = resolve_report_time_axis(timeseries)
             
             # Create the figure for power data with a consistent title
             fig = make_subplots(specs=[[{"secondary_y": True}]])
@@ -1710,9 +1713,9 @@ class ReportManager:
                 gridcolor='rgba(0, 0, 0, 0.05)'
             )
             fig.update_xaxes(
-                title_text="Time",
+                title_text=axis_title,
                 type='date',
-                tickformat='%H:%M',
+                tickformat=axis_tickformat,
                 gridcolor='rgba(0, 0, 0, 0.1)'
             )
             
@@ -1747,6 +1750,7 @@ class ReportManager:
                 return fig
             
             timeseries = data['timeseries']
+            axis_title, axis_tickformat = resolve_report_time_axis(timeseries)
             
             # Create the figure for voltage data
             fig = go.Figure()
@@ -1830,9 +1834,9 @@ class ReportManager:
             )
             
             fig.update_xaxes(
-                title_text="Time",
+                title_text=axis_title,
                 type='date',
-                tickformat='%H:%M',
+                tickformat=axis_tickformat,
                 gridcolor='rgba(0, 0, 0, 0.1)'
             )
             
@@ -2048,33 +2052,9 @@ class ReportManager:
                 # For yesterday, ensure we show a single day (same day for start and end)
                 yesterday_str = from_date.astimezone(self.tz).strftime('%Y-%m-%d')
                 report_period = f"{yesterday_str} 00:00 - {yesterday_str} 23:59"
-            elif report_type == 'last_week':
-                # For last week, ensure proper Monday-to-Sunday range
+            elif report_type in {'last_week', 'last_month', 'last_year'}:
                 start_str = from_date.astimezone(self.tz).strftime('%Y-%m-%d')
-                # Calculate end date (should be Sunday)
-                monday = from_date.astimezone(self.tz).replace(hour=0, minute=0, second=0, microsecond=0)
-                sunday = monday + timedelta(days=6)
-                end_str = sunday.strftime('%Y-%m-%d')
-                report_period = f"{start_str} 00:00 - {end_str} 23:59"
-            elif report_type == 'last_month':
-                # For last month, ensure it's the correct month range (1st to last day)
-                # Calculate first day of the month
-                
-                # Get the first day of the current month
-                first_day_current_month = datetime(to_date.year, to_date.month, 1, tzinfo=self.tz)
-                
-                # Calculate last day of previous month (day before first of this month)
-                last_day = first_day_current_month - timedelta(days=1)
-                
-                # Calculate first day of the previous month
-                if last_day.month == 12:  # December
-                    first_day = datetime(last_day.year - 1, 12, 1, tzinfo=self.tz)
-                else:
-                    first_day = datetime(last_day.year, last_day.month, 1, tzinfo=self.tz)
-                
-                # Format the strings - ensure we're using the correct month for the report period
-                start_str = first_day.strftime('%Y-%m-%d')
-                end_str = last_day.strftime('%Y-%m-%d')
+                end_str = to_date.astimezone(self.tz).strftime('%Y-%m-%d')
                 report_period = f"{start_str} 00:00 - {end_str} 23:59"
             elif report_type == 'range' or report_type == 'custom':
                 # For custom range, use exact selected dates
@@ -2343,38 +2323,37 @@ class ReportManager:
                 mail_config = _scoped_mail_query(MailConfig).order_by(MailConfig.id.asc()).first()
                 if mail_config:
                     logger.info(f"Using mail configuration: SMTP={mail_config.smtp_server}:{mail_config.smtp_port}, Provider={mail_config.provider}")
-                    
-                    # Check if the password can be accessed
-                    try:
-                        # First try to get the password directly - this will check if decryption works
-                        password = mail_config.password
-                        if password is None:
-                            logger.error("❌ Mail config password is None or cannot be decrypted")
+                    username = str(getattr(mail_config, 'username', '') or '').strip()
+                    password = ''
+                    if username:
+                        try:
+                            password = mail_config.password
+                            if password is None:
+                                logger.error("❌ Mail config password is None or cannot be decrypted")
+                                return {
+                                    'status': 'error',
+                                    'message': 'Mail configuration password cannot be decrypted. Please update your mail settings with a new password.'
+                                }
+                            logger.debug(f"✅ Successfully accessed mail config password (length: {len(password)})")
+                        except Exception as pwd_err:
+                            logger.error(f"❌ Failed to access mail config password: {str(pwd_err)}")
                             return {
                                 'status': 'error',
-                                'message': 'Mail configuration password cannot be decrypted. Please update your mail settings with a new password.'
+                                'message': f'Failed to access mail configuration password: {str(pwd_err)}'
                             }
-                        
-                        logger.debug(f"✅ Successfully accessed mail config password (length: {len(password)})")
-                        
-                        smtp_settings = {
-                            'smtp_server': mail_config.smtp_server,  # Use smtp_server key for consistency
-                            'smtp_port': mail_config.smtp_port,      # Use smtp_port key for consistency 
-                            'username': mail_config.username,
-                            'password': password,
-                            'from_email': mail_config.from_email,    # Use from_email property
-                            'provider': mail_config.provider,
-                            'tls': mail_config.tls,                  # Use tls key for consistency
-                            'tls_starttls': mail_config.tls_starttls, # Use tls_starttls key for consistency
-                            # Add a longer timeout for report emails which may be larger
-                            'timeout': 120  # 2 minute timeout for report sending
-                        }
-                    except Exception as pwd_err:
-                        logger.error(f"❌ Failed to access mail config password: {str(pwd_err)}")
-                        return {
-                            'status': 'error',
-                            'message': f'Failed to access mail configuration password: {str(pwd_err)}'
-                        }
+
+                    smtp_settings = {
+                        'smtp_server': mail_config.smtp_server,  # Use smtp_server key for consistency
+                        'smtp_port': mail_config.smtp_port,      # Use smtp_port key for consistency
+                        'username': username,
+                        'password': password,
+                        'from_email': mail_config.from_email,    # Use from_email property
+                        'provider': mail_config.provider,
+                        'tls': mail_config.tls,                  # Use tls key for consistency
+                        'tls_starttls': mail_config.tls_starttls, # Use tls_starttls key for consistency
+                        # Add a longer timeout for report emails which may be larger
+                        'timeout': 120  # 2 minute timeout for report sending
+                    }
                 else:
                     logger.error("No mail configuration found")
                     return {
@@ -2706,6 +2685,8 @@ class ReportManager:
                 # Format the month name properly for the subject
                 month_name = from_date.astimezone(self.tz).strftime('%B %Y')
                 subject = f"Monthly UPS Report - {month_name}"
+            elif period_type == 'yearly':
+                subject = f"Yearly UPS Report - {from_date.astimezone(self.tz).strftime('%Y')}"
             else:
                 subject = f"UPS Report - {period_str}"
             
@@ -2736,11 +2717,15 @@ class ReportManager:
                     mail_config = mail_query.filter(MailConfig.id == int(id_email)).first()
                     if mail_config:
                         logger.debug(f"Using mail configuration with ID {id_email} for SMTP settings")
+                        username = str(getattr(mail_config, 'username', '') or '').strip()
+                        password = ''
+                        if username:
+                            password = mail_config.password or ''
                         smtp_settings = {
                             'host': mail_config.smtp_server,
                             'port': mail_config.smtp_port,
-                            'username': mail_config.username,
-                            'password': mail_config.password,
+                            'username': username,
+                            'password': password,
                             'from_email': mail_config.from_email or mail_config.username,
                             'from_name': 'UPS Monitor',
                             'tls': bool(mail_config.tls),
@@ -2758,11 +2743,15 @@ class ReportManager:
                     mail_config = mail_query.order_by(MailConfig.is_default.desc(), MailConfig.id.asc()).first()
                     if mail_config:
                         logger.debug("Using mail configuration for SMTP settings only (not for recipient)")
+                        username = str(getattr(mail_config, 'username', '') or '').strip()
+                        password = ''
+                        if username:
+                            password = mail_config.password or ''
                         smtp_settings = {
                             'host': mail_config.smtp_server,
                             'port': mail_config.smtp_port,
-                            'username': mail_config.username,
-                            'password': mail_config.password,
+                            'username': username,
+                            'password': password,
                             'from_email': mail_config.from_email or mail_config.username,
                             'from_name': 'UPS Monitor',
                             'tls': bool(mail_config.tls),
