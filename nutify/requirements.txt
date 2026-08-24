@@ -48,7 +48,7 @@ email-validator==2.1.2
 Jinja2==3.1.6
 
 # DNS resolution library (pinned for eventlet compatibility)
-dnspython==2.7.0
+dnspython==2.8.0
 
 # System monitoring
 psutil==7.0.0
