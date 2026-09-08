@@ -1207,6 +1207,14 @@ def update_initial_setup_options():
             getattr(variable_row, 'target_id', resolved_scope),
         )
 
+        # monitoring_profile may have changed; drop the cached workspace profile
+        # so the next read reflects the new value instead of a stale 30s TTL.
+        try:
+            from core.settings import invalidate_workspace_profile_cache
+            invalidate_workspace_profile_cache()
+        except Exception:
+            pass
+
         try:
             if str(getattr(variable_row, 'timezone', 'UTC') or 'UTC') != previous_timezone:
                 runtime_timezone = pytz.timezone(variable_row.timezone or 'UTC')

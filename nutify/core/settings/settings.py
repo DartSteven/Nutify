@@ -1,6 +1,7 @@
 """Runtime settings loader and compatibility accessors."""
 
 import os
+import time
 from pathlib import Path
 import pytz
 from datetime import datetime
@@ -395,27 +396,52 @@ def get_ups_realpower_nominal(target_id=None):
     return None
 
 
+_WORKSPACE_PROFILE_CACHE: dict = {"value": None, "expires": 0.0}
+_WORKSPACE_PROFILE_TTL_SECONDS = 30.0
+
+
 def get_workspace_monitoring_profile():
-    """Get workspace monitoring profile from nutify_master_control."""
+    """Get workspace monitoring profile from nutify_master_control.
+
+    The result is cached for a short TTL: this is called once per data row
+    by the energy/power/battery history builders, and the previous
+    implementation created a fresh SQLAlchemy engine and reflected the
+    entire schema on every call, which made single-day history requests
+    take several seconds.
+    """
+    now = time.monotonic()
+    if _WORKSPACE_PROFILE_CACHE["value"] is not None and _WORKSPACE_PROFILE_CACHE["expires"] > now:
+        return _WORKSPACE_PROFILE_CACHE["value"]
+
+    value = 'single'
     try:
         row = _fetch_master_control_row('monitoring_profile')
         if row is not None:
-            return _normalize_monitoring_profile(row[0])
+            value = _normalize_monitoring_profile(row[0])
     except Exception as e:
         logger.debug(f"Error getting monitoring profile from master control: {str(e)}")
-
-    try:
-        engine = create_engine(DB_URI)
-        inspector = inspect(engine)
-        if not _table_exists(inspector, 'ups_monitor_targets'):
+        try:
+            engine = create_engine(DB_URI)
+            inspector = inspect(engine)
+            if not _table_exists(inspector, 'ups_monitor_targets'):
+                return 'single'
+            with engine.connect() as connection:
+                enabled_targets = connection.execute(
+                    text("SELECT COUNT(*) FROM ups_monitor_targets WHERE enabled = 1")
+                ).scalar()
+                value = 'multi' if int(enabled_targets or 0) > 1 else 'single'
+        except Exception:
             return 'single'
-        with engine.connect() as connection:
-            enabled_targets = connection.execute(
-                text("SELECT COUNT(*) FROM ups_monitor_targets WHERE enabled = 1")
-            ).scalar()
-            return 'multi' if int(enabled_targets or 0) > 1 else 'single'
-    except Exception:
-        return 'single'
+
+    _WORKSPACE_PROFILE_CACHE["value"] = value
+    _WORKSPACE_PROFILE_CACHE["expires"] = now + _WORKSPACE_PROFILE_TTL_SECONDS
+    return value
+
+
+def invalidate_workspace_profile_cache() -> None:
+    """Drop the cached workspace monitoring profile (call after it changes)."""
+    _WORKSPACE_PROFILE_CACHE["value"] = None
+    _WORKSPACE_PROFILE_CACHE["expires"] = 0.0
 
 
 def get_target_timezone(target_id=None):
