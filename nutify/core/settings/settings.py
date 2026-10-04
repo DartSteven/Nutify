@@ -5,6 +5,7 @@ from pathlib import Path
 import pytz
 from datetime import datetime
 import logging
+import threading
 from sqlalchemy import create_engine, inspect, text
 
 import os as _os
@@ -180,16 +181,37 @@ def _normalize_timezone(value, fallback='UTC'):
         return fallback
 
 
+_shared_engine = None
+_shared_engine_lock = threading.Lock()
+_known_tables = set()
+
+
+def _get_shared_engine():
+    """Return one process-wide engine for DB_URI (created on first use)."""
+    global _shared_engine
+    if _shared_engine is None:
+        with _shared_engine_lock:
+            if _shared_engine is None:
+                _shared_engine = create_engine(DB_URI)
+    return _shared_engine
+
+
 def _table_exists(inspector, table_name):
+    # Positive results are cached: tables are created at startup/migration and never dropped.
+    if table_name in _known_tables:
+        return True
     try:
-        return table_name in inspector.get_table_names()
+        exists = table_name in inspector.get_table_names()
     except Exception:
         return False
+    if exists:
+        _known_tables.add(table_name)
+    return exists
 
 
 def _fetch_master_control_row(*columns):
     """Read one row from nutify_master_control using DB_URI directly."""
-    engine = create_engine(DB_URI)
+    engine = _get_shared_engine()
     inspector = inspect(engine)
     if not _table_exists(inspector, 'nutify_master_control'):
         return None
@@ -254,7 +276,7 @@ def _fetch_variable_config_row(*columns, target_id=None):
     3) Any target-scoped row (target_id IS NOT NULL)
     4) Legacy global row (target_id IS NULL)
     """
-    engine = create_engine(DB_URI)
+    engine = _get_shared_engine()
     inspector = inspect(engine)
     if not _table_exists(inspector, 'ups_opt_variable_config'):
         return None
@@ -405,7 +427,7 @@ def get_workspace_monitoring_profile():
         logger.debug(f"Error getting monitoring profile from master control: {str(e)}")
 
     try:
-        engine = create_engine(DB_URI)
+        engine = _get_shared_engine()
         inspector = inspect(engine)
         if not _table_exists(inspector, 'ups_monitor_targets'):
             return 'single'

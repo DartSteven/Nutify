@@ -191,16 +191,28 @@ def models():
     return model_space.UPSMonitorTarget, model_space.UPSMonitorPolicy, model_space.UPSMonitorData
 
 
+_fallback_engine = None
+_location_columns_ensured = False
+
+
 def _resolve_sql_engine():
     """Resolve usable SQL engine both inside and outside Flask app context."""
+    global _fallback_engine
     try:
         return db.engine, False
     except Exception:
-        return create_engine(DB_URI), True
+        # Outside an app context: reuse one engine rather than building (and
+        # re-reading the schema with) a fresh one on every call.
+        if _fallback_engine is None:
+            _fallback_engine = create_engine(DB_URI)
+        return _fallback_engine, False
 
 
 def ensure_target_location_columns():
     """Ensure optional target location columns exist for compatibility."""
+    global _location_columns_ensured
+    if _location_columns_ensured:
+        return
     engine = None
     dispose_engine = False
     try:
@@ -281,6 +293,7 @@ def ensure_target_location_columns():
                         "ADD COLUMN location_longitude FLOAT"
                     )
                 )
+        _location_columns_ensured = True
     except Exception as exc:
         logger.debug(f"Could not ensure location columns on ups_monitor_targets: {exc}")
     finally:
