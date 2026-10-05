@@ -28,7 +28,7 @@ from core.logger import options_logger as logger
 from core.db.ups import db, VariableConfig
 from core.settings import LOG, LOG_LEVEL, LOG_WERKZEUG, UPS_CONF_PATH
 from core.mail import test_notification, get_mail_config_model
-from core.multi_nut.target_scope import apply_target_scope, resolve_settings_target_id
+from core.multi_nut.target_scope import apply_target_scope, invalidate_profile_cache, resolve_settings_target_id
 from core.scripts.executor import run_shell_script
 from core.auth import require_admin
 import pytz
@@ -1201,6 +1201,7 @@ def update_initial_setup_options():
                 variable_row.ups_realpower_nominal = parsed_nominal
 
         db.session.commit()
+        invalidate_profile_cache()
         logger.info(
             "Updated master control and scoped setup options: server_name=%s, target_id=%s",
             master_row.server_name,

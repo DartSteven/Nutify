@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import ast
+import functools
 import math
 import re
 import time
@@ -303,9 +304,16 @@ class _FormulaEvaluator(ast.NodeVisitor):
         raise ValueError(f'Unsupported expression node: {type(node).__name__}')
 
 
+@functools.lru_cache(maxsize=128)
+def _parse_formula(expression: str) -> ast.Expression:
+    # Formulas are evaluated once per history sample; parse each distinct one once.
+    # The tree is only read by _FormulaEvaluator, never mutated.
+    return ast.parse(expression, mode='eval')
+
+
 def _evaluate_formula(expression: str, context: Dict[str, float], fallback: float) -> float:
     try:
-        parsed = ast.parse(expression, mode='eval')
+        parsed = _parse_formula(expression)
         value = _FormulaEvaluator(context).visit(parsed)
         if math.isnan(value) or math.isinf(value):
             return fallback
