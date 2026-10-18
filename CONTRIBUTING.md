@@ -16,6 +16,7 @@ Install backend dependencies and compile the Python source:
 ```bash
 python3 -m pip install -r nutify/requirements.txt
 python3 -m compileall -q nutify
+python3 -m unittest discover -s tests -v
 ```
 
 Build the frontend:

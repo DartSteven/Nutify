@@ -1526,6 +1526,9 @@ class EmailNotifier:
             # If not, check if mail_config has to_email
             if not to_email or to_email.strip() == '':
                 to_email = mail_config.to_email
+            # Match the provider test fallback, including unauthenticated relays.
+            if not to_email or to_email.strip() == '':
+                to_email = mail_config.from_email
             # If still not available, use the username as fallback
             if not to_email or to_email.strip() == '':
                 to_email = mail_config.username

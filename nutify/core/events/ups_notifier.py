@@ -99,6 +99,7 @@ try:
     from core import create_app
     from core.template_loader import configure_template_loader
     from core.mail.mail import EmailNotifier
+    from core.settings import get_server_name
     from core.db.ups import db, UPSEvent
     from core.logger import mail_logger as logger, database_logger
     from core.notifications import (
@@ -1688,7 +1689,6 @@ def send_ntfy_notification(ups_name, event_type, config, target_id=None, notific
         priority = priority_map.get(event_type, config.get('priority', 3))
         
         # Create a NtfyNotifier instance using the config and send the notification
-        from core.extranotifs.ntfy.ntfy import NtfyNotifier
         # Log more detailed info about the notification being sent
         server = config.get('server', 'https://ntfy.sh')
         topic = config.get('topic', '')
