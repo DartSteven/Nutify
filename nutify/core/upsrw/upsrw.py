@@ -204,8 +204,9 @@ def set_ups_variable(name, value, target_id=None):
         result = subprocess.run(cmd, capture_output=True, text=True)
         logger.debug(f"Command output: stdout={result.stdout}, stderr={result.stderr}")
 
-        # If the command returns "OK" in stderr, it is a success
-        if result.stderr.strip() == "OK":
+        # upsrw exits with status 0 when upsd accepts the write; do not
+        # depend on the exact text it prints
+        if result.returncode == 0:
             logger.info(f"Command executed successfully for {safe_name}={safe_value}")
             
             # Ensure UPSVariable model is initialized
